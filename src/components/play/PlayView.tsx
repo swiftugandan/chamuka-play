@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ArrowLeft, Wand2 } from "lucide-react";
 import { saveVersion, type GameVersion } from "@/lib/storage/repository";
+import { readGameStream } from "@/lib/ai/streamClient";
 import { Building } from "./Building";
 import { WhatChanged } from "./WhatChanged";
 
@@ -30,8 +31,9 @@ export function PlayView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: current.code, instruction }),
       });
-      const data = await res.json();
       if (!res.ok) return;
+      const data = await readGameStream(res);
+      if ("error" in data) return;
       const ts = Date.now();
       const version: GameVersion = {
         ...current,

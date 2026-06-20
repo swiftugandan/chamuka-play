@@ -4,6 +4,7 @@ import { Mascot } from "./Mascot";
 import { Building } from "./Building";
 import { GameStarterCards } from "./GameStarterCards";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
+import { readGameStream } from "@/lib/ai/streamClient";
 import type { Game } from "@/lib/ai/schema";
 
 export function Shell({
@@ -31,12 +32,17 @@ export function Shell({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ starterId, prompt }),
       });
-      const data = await res.json();
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Something went wrong.");
         return;
       }
-      onCreated(data as Game, starterId, prompt);
+      const game = await readGameStream(res);
+      if ("error" in game) {
+        setError(game.error || "Something went wrong.");
+        return;
+      }
+      onCreated(game, starterId, prompt);
     } catch {
       setError("Something went wrong making your game. Try again!");
     } finally {
