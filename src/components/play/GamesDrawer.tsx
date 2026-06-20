@@ -1,5 +1,5 @@
 "use client";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gamepad2, X } from "lucide-react";
 import type { GameVersion } from "@/lib/storage/repository";
 import { GamesPanel } from "./GamesPanel";
 
@@ -51,15 +51,25 @@ export function GamesDrawer({
           <GamesPanel games={games} onOpen={onOpen} onDelete={onDelete} />
         </div>
 
-        {/* Grab handle that bulges past the edge — peeks when closed, toggles the drawer. */}
-        <button
-          onClick={onToggle}
-          aria-label={open ? "Close games" : "Open games"}
-          aria-expanded={open}
-          className="group pointer-events-auto absolute right-0 top-1/2 flex h-14 w-5 -translate-y-1/2 translate-x-[calc(100%-1px)] items-center justify-center rounded-r-xl border border-l-0 border-white/60 bg-white/85 shadow-md backdrop-blur"
-        >
-          <span className="h-8 w-1 rounded-full bg-ink/25 transition-colors group-hover:bg-grape" />
-        </button>
+        {/* Big, kid-obvious games tab — peeks when closed, toggles the drawer. */}
+        <div className="pointer-events-none absolute right-0 top-0 flex h-full translate-x-full items-center">
+          <button
+            onClick={onToggle}
+            aria-label={open ? "Close games" : "Open games"}
+            aria-expanded={open}
+            className={`pointer-events-auto flex flex-col items-center gap-1 rounded-r-2xl border border-l-0 border-white/70 bg-gradient-to-b from-[#9b5bff] to-grape px-2.5 py-4 text-white shadow-lg ${
+              open ? "" : "anim-wiggle"
+            }`}
+          >
+            {!open && games.length > 0 && (
+              <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-white px-1 text-[11px] font-extrabold text-grape">
+                {games.length}
+              </span>
+            )}
+            <Gamepad2 size={24} />
+            {open ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+          </button>
+        </div>
       </aside>
     </div>
   );

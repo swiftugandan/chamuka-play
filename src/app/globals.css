@@ -236,6 +236,19 @@
   .anim-load {
     animation: mishi-load 1.6s ease-in-out infinite;
   }
+  .anim-wiggle {
+    animation: mishi-wiggle 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes mishi-wiggle {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
 }
 
 @keyframes mishi-float {
