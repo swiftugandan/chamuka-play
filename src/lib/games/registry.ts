@@ -30,6 +30,11 @@ export const GAME_STARTERS: GameStarter[] = [
     label: "Drawing Toy",
     description: "A playful canvas to draw with colours and brushes",
   },
+  {
+    id: "memory",
+    label: "Memory Game",
+    description: "Flip cards to find the matching pairs",
+  },
 ];
 
 export function getStarter(id: string): GameStarter | undefined {

@@ -2,9 +2,16 @@ import { describe, it, expect } from "vitest";
 import { GAME_STARTERS, getStarter } from "./registry";
 
 describe("game starters", () => {
-  it("has the five v1 starters", () => {
+  it("has the six v1 starters", () => {
     const ids = GAME_STARTERS.map((s) => s.id);
-    expect(ids).toEqual(["clicker", "catch", "maze", "quiz", "drawing"]);
+    expect(ids).toEqual([
+      "clicker",
+      "catch",
+      "maze",
+      "quiz",
+      "drawing",
+      "memory",
+    ]);
   });
   it("each starter has a label and description", () => {
     for (const s of GAME_STARTERS) {

@@ -43,6 +43,12 @@ const THEMES: Record<string, StarterTheme> = {
     colorDark: "var(--color-lilac-dark)",
     tint: "#ece2ff",
   },
+  memory: {
+    emoji: "🧠",
+    color: "var(--color-bubble)",
+    colorDark: "var(--color-bubble-dark)",
+    tint: "#ffe0ef",
+  },
 };
 
 const FALLBACK: StarterTheme = THEMES.clicker;
