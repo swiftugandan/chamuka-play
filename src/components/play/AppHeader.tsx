@@ -16,21 +16,16 @@ export function AppHeader({
         <span className="font-display text-xl font-bold sm:text-2xl">
           Chamuka <span className="text-grape">Play</span>
         </span>
-        <div className="ml-auto">
-          <span className="hidden rounded-full bg-grape/10 px-3.5 py-1.5 font-display text-sm font-semibold text-grape lg:inline">
-            Make · Play · Tweak
-          </span>
-          {onOpenGames && (
-            <button
-              onClick={onOpenGames}
-              className="btn-toy inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-display text-sm font-semibold text-ink lg:hidden"
-              style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
-            >
-              <Gamepad2 size={16} className="text-grape" /> My games
-              {gamesCount > 0 ? ` (${gamesCount})` : ""}
-            </button>
-          )}
-        </div>
+        {onOpenGames && (
+          <button
+            onClick={onOpenGames}
+            className="btn-toy ml-auto inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-display text-sm font-semibold text-ink"
+            style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+          >
+            <Gamepad2 size={16} className="text-grape" /> My games
+            {gamesCount > 0 ? ` (${gamesCount})` : ""}
+          </button>
+        )}
       </div>
     </header>
   );

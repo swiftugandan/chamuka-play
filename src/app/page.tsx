@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Shell } from "@/components/play/Shell";
 import { PlayView } from "@/components/play/PlayView";
-import { GamesPanel } from "@/components/play/GamesPanel";
 import { GamesDrawer } from "@/components/play/GamesDrawer";
 import { AppHeader } from "@/components/play/AppHeader";
 import { AppFooter } from "@/components/play/AppFooter";
@@ -78,17 +77,10 @@ export default function Home() {
         gamesCount={games.length}
         onOpenGames={() => setDrawerOpen(true)}
       />
-      <div className="flex flex-1">
-        <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-72 shrink-0 overflow-y-auto border-r border-white/60 bg-white/40 p-4 lg:block">
-          <GamesPanel games={games} onOpen={openGame} onDelete={handleDelete} />
-        </aside>
-        <main className="flex min-w-0 flex-1 flex-col">
-          <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6">
-            <Shell onCreated={handleCreated} />
-          </div>
-          <AppFooter />
-        </main>
-      </div>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6">
+        <Shell onCreated={handleCreated} />
+      </main>
+      <AppFooter />
       <GamesDrawer
         open={drawerOpen}
         games={games}

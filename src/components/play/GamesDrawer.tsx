@@ -19,7 +19,7 @@ export function GamesDrawer({
 }) {
   return (
     <div
-      className={`fixed inset-0 z-40 lg:hidden ${open ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-40 ${open ? "" : "pointer-events-none"}`}
       aria-hidden={!open}
     >
       <div
@@ -31,7 +31,7 @@ export function GamesDrawer({
       <aside
         role="dialog"
         aria-label="Your games"
-        className={`scene-bg absolute left-0 top-0 h-dvh w-80 max-w-[85vw] overflow-y-auto border-r border-white/60 p-4 shadow-2xl transition-transform duration-200 ${
+        className={`scene-bg absolute left-0 top-0 h-dvh w-80 max-w-[85vw] overflow-y-auto border-r border-white/60 p-4 shadow-2xl transition-transform duration-200 sm:w-96 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
