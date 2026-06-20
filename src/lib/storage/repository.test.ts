@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./db";
-import { saveVersion, listGames, getVersions } from "./repository";
+import { saveVersion, listGames, getVersions, deleteGame } from "./repository";
 
 function v(game_id: string, ts: number, title: string) {
   return {
@@ -33,5 +33,15 @@ describe("storage repository", () => {
     await saveVersion(v("g1", 200, "new"));
     const versions = await getVersions("g1");
     expect(versions.map((x) => x.timestamp)).toEqual([200, 100]);
+  });
+
+  it("deletes a game and all its versions", async () => {
+    await saveVersion(v("g1", 100, "a"));
+    await saveVersion(v("g1", 200, "b"));
+    await saveVersion(v("g2", 150, "c"));
+    await deleteGame("g1");
+    const games = await listGames();
+    expect(games.map((g) => g.game_id)).toEqual(["g2"]);
+    expect(await getVersions("g1")).toEqual([]);
   });
 });

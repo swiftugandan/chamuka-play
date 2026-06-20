@@ -6,6 +6,11 @@ export async function saveVersion(v: GameVersion): Promise<void> {
   await db.versions.put(v);
 }
 
+/** Removes a game and all of its versions from the collection. */
+export async function deleteGame(gameId: string): Promise<void> {
+  await db.versions.where("game_id").equals(gameId).delete();
+}
+
 export async function getVersions(gameId: string): Promise<GameVersion[]> {
   const rows = await db.versions.where("game_id").equals(gameId).toArray();
   return rows.sort((a, b) => b.timestamp - a.timestamp);

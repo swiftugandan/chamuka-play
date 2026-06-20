@@ -9,6 +9,7 @@ import { AppFooter } from "@/components/play/AppFooter";
 import {
   listGames,
   saveVersion,
+  deleteGame,
   type GameVersion,
 } from "@/lib/storage/repository";
 import type { Game } from "@/lib/ai/schema";
@@ -50,6 +51,11 @@ export default function Home() {
     setCurrent(v);
   }
 
+  async function handleDelete(gameId: string) {
+    await deleteGame(gameId);
+    refreshGames();
+  }
+
   if (current) {
     return (
       <PlayView
@@ -74,7 +80,7 @@ export default function Home() {
       />
       <div className="flex flex-1">
         <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-72 shrink-0 overflow-y-auto border-r border-white/60 bg-white/40 p-4 lg:block">
-          <GamesPanel games={games} onOpen={openGame} />
+          <GamesPanel games={games} onOpen={openGame} onDelete={handleDelete} />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6">
@@ -88,6 +94,7 @@ export default function Home() {
         games={games}
         onClose={() => setDrawerOpen(false)}
         onOpen={openGame}
+        onDelete={handleDelete}
       />
     </div>
   );

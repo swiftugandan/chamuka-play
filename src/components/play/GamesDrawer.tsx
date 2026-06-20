@@ -9,11 +9,13 @@ export function GamesDrawer({
   games,
   onClose,
   onOpen,
+  onDelete,
 }: {
   open: boolean;
   games: GameVersion[];
   onClose: () => void;
   onOpen: (v: GameVersion) => void;
+  onDelete: (gameId: string) => void;
 }) {
   return (
     <div
@@ -43,7 +45,7 @@ export function GamesDrawer({
             <X size={18} />
           </button>
         </div>
-        <GamesPanel games={games} onOpen={onOpen} />
+        <GamesPanel games={games} onOpen={onOpen} onDelete={onDelete} />
       </aside>
     </div>
   );
