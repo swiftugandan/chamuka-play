@@ -61,7 +61,7 @@ export function GamesDrawer({
               open ? "" : "anim-wiggle"
             }`}
           >
-            {!open && games.length > 0 && (
+            {games.length > 0 && (
               <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-white px-1 text-[11px] font-extrabold text-grape">
                 {games.length}
               </span>
