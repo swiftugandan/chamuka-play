@@ -45,14 +45,8 @@ export function Shell({
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
-      <header className="flex items-center gap-2.5 pb-1.5 pt-4">
-        <span className="font-display text-xl font-bold sm:text-2xl">
-          Chamuka <span className="text-grape">Play</span>
-        </span>
-      </header>
-
-      <div className="mb-[18px] mt-2.5 flex items-end gap-3">
+    <div className="w-full">
+      <div className="mb-[18px] flex items-end gap-3">
         <Mascot
           size={78}
           className="anim-float w-[64px] shrink-0 sm:w-[88px]"

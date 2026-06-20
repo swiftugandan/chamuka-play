@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Shell } from "@/components/play/Shell";
 import { PlayView } from "@/components/play/PlayView";
 import { MyGames } from "@/components/play/MyGames";
+import { AppHeader } from "@/components/play/AppHeader";
+import { AppFooter } from "@/components/play/AppFooter";
 import { saveVersion, type GameVersion } from "@/lib/storage/repository";
 import type { Game } from "@/lib/ai/schema";
 
@@ -36,9 +38,17 @@ export default function Home() {
   }
 
   return (
-    <main className="pb-28 pt-1">
-      <Shell onCreated={handleCreated} />
-      <MyGames onOpen={(v) => setCurrent(v)} />
-    </main>
+    <div className="flex min-h-dvh flex-col">
+      <AppHeader />
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6 lg:max-w-6xl">
+        <div className="lg:grid lg:grid-cols-[7fr_5fr] lg:items-start lg:gap-10">
+          <Shell onCreated={handleCreated} />
+          <div className="mt-12 lg:mt-0">
+            <MyGames onOpen={(v) => setCurrent(v)} />
+          </div>
+        </div>
+      </main>
+      <AppFooter />
+    </div>
   );
 }
