@@ -14,14 +14,14 @@ export function MyGames({ onOpen }: { onOpen: (v: GameVersion) => void }) {
   if (games.length === 0) return null;
 
   return (
-    <div className="mx-auto mt-6 w-full max-w-[520px] px-[18px]">
+    <div className="mx-auto mt-6 w-full max-w-2xl px-4 sm:px-6">
       <div className="mb-3.5 flex items-baseline justify-between px-1">
         <h2 className="font-display text-[22px] font-bold">Your games</h2>
         <span className="text-sm font-extrabold text-ink-soft">
           {games.length} made
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
         {games.map((g) => {
           const t = starterTheme(g.starterId);
           return (

@@ -50,17 +50,19 @@ export function PlayView({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col px-[18px]">
+    <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
       <div className="flex items-center gap-2.5 pb-3 pt-4">
         <button
           onClick={onNewGame}
-          className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2.5 text-sm font-semibold text-ink"
+          className="btn-toy font-display inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-2.5 text-sm font-semibold text-ink"
           style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
         >
-          <ArrowLeft size={18} /> Make another
+          <ArrowLeft size={18} />{" "}
+          <span className="hidden sm:inline">Make another</span>
+          <span className="sm:hidden">New</span>
         </button>
         <span
-          className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[15px] font-bold"
+          className="btn-toy font-display inline-flex min-w-0 max-w-[55vw] items-center gap-1.5 rounded-full px-4 py-2.5 text-[15px] font-bold sm:max-w-sm"
           style={
             {
               background: "var(--color-sun)",
@@ -69,20 +71,24 @@ export function PlayView({
             } as React.CSSProperties
           }
         >
-          🌟 {current.title}
+          <span aria-hidden="true">🌟</span>
+          <span className="truncate">{current.title}</span>
         </span>
       </div>
 
-      <div className="console-shell rounded-toy-xl flex-1 p-3">
+      <div className="console-shell rounded-toy-xl flex-1 p-2.5 sm:p-3">
         <iframe
           title={current.title}
           sandbox="allow-scripts"
           srcDoc={current.code}
-          className="console-screen h-full min-h-[360px] w-full rounded-3xl"
+          className="console-screen h-full min-h-[55dvh] w-full rounded-2xl sm:rounded-3xl"
         />
       </div>
 
-      <div className="flex items-center gap-2.5 py-3.5">
+      <div
+        className="flex items-center gap-2.5 pt-3.5"
+        style={{ paddingBottom: "max(0.875rem, env(safe-area-inset-bottom))" }}
+      >
         <input
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}

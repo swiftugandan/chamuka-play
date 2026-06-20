@@ -3,13 +3,19 @@ import { generateText, Output } from "ai";
 import { GAME_SYSTEM_PROMPT } from "@/lib/games/systemPrompt";
 import { getStarter } from "@/lib/games/registry";
 import { GameSchema, type Game } from "./schema";
+import { mockGenerate, mockRefine } from "./mockGame";
 
 const MODEL = process.env.GAME_MODEL ?? "google/gemini-3.5-flash";
+
+function isMockEnabled(): boolean {
+  return process.env.MOCK_AI === "1";
+}
 
 export async function generateGame(input: {
   starterId: string;
   prompt: string;
 }): Promise<Game> {
+  if (isMockEnabled()) return mockGenerate(input);
   const starter = getStarter(input.starterId);
   const kind = starter ? starter.label : "fun game";
   const { output } = await generateText({
@@ -25,6 +31,7 @@ export async function refineGame(input: {
   code: string;
   instruction: string;
 }): Promise<Game> {
+  if (isMockEnabled()) return mockRefine(input);
   const { output } = await generateText({
     model: MODEL,
     system: GAME_SYSTEM_PROMPT,

@@ -45,18 +45,23 @@ export function Shell({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[520px] px-[18px]">
-      <header className="flex items-center gap-2.5 pt-4 pb-1.5">
-        <span className="font-display text-xl font-bold">
+    <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
+      <header className="flex items-center gap-2.5 pb-1.5 pt-4">
+        <span className="font-display text-xl font-bold sm:text-2xl">
           Chamuka <span className="text-grape">Play</span>
         </span>
       </header>
 
       <div className="mb-[18px] mt-2.5 flex items-end gap-3">
-        <Mascot size={78} className="anim-float shrink-0" />
-        <div className="speech flex-1 rounded-[22px] bg-white p-4 shadow-[0_12px_30px_rgba(82,40,150,0.13)]">
-          <div className="font-display text-lg font-bold">Hi, I&apos;m Mishi! 👋</div>
-          <div className="mt-0.5 text-sm font-bold text-ink-soft">
+        <Mascot
+          size={78}
+          className="anim-float w-[64px] shrink-0 sm:w-[88px]"
+        />
+        <div className="speech flex-1 rounded-[22px] bg-white p-4 shadow-[0_12px_30px_rgba(82,40,150,0.13)] sm:p-5">
+          <div className="font-display text-lg font-bold sm:text-xl">
+            Hi, I&apos;m Mishi! 👋
+          </div>
+          <div className="mt-0.5 text-sm font-bold text-ink-soft sm:text-base">
             What do you want to make today?
           </div>
         </div>
@@ -90,7 +95,7 @@ export function Shell({
         type="button"
         onClick={makeGame}
         disabled={busy || !prompt.trim()}
-        className="btn-toy btn-make font-display mt-[18px] flex w-full items-center justify-center gap-2.5 rounded-full p-[18px] text-xl font-bold text-white"
+        className="btn-toy btn-make font-display mt-[18px] flex w-full items-center justify-center gap-2.5 rounded-full p-4 text-xl font-bold text-white sm:p-5 sm:text-2xl"
       >
         <span className="text-2xl">✨</span> Make my game!
       </button>
