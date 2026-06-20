@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ArrowLeft, Wand } from "lucide-react";
+import { ArrowLeft, Wand2 } from "lucide-react";
 import { saveVersion, type GameVersion } from "@/lib/storage/repository";
+import { Building } from "./Building";
 import { WhatChanged } from "./WhatChanged";
 
 export function PlayView({
@@ -49,38 +50,65 @@ export function PlayView({
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <div className="flex items-center gap-2 border-b p-2">
+    <div className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col px-[18px]">
+      <div className="flex items-center gap-2.5 pb-3 pt-4">
         <button
           onClick={onNewGame}
-          className="inline-flex items-center gap-1 rounded-lg px-3 py-1 hover:bg-muted"
+          className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2.5 text-sm font-semibold text-ink"
+          style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
         >
-          <ArrowLeft size={18} /> New game
+          <ArrowLeft size={18} /> Make another
         </button>
-        <span className="font-bold">{current.title}</span>
+        <span
+          className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[15px] font-bold"
+          style={
+            {
+              background: "var(--color-sun)",
+              color: "#5a3b00",
+              "--toy-depth": "var(--color-sun-dark)",
+            } as React.CSSProperties
+          }
+        >
+          🌟 {current.title}
+        </span>
       </div>
-      <iframe
-        title={current.title}
-        sandbox="allow-scripts"
-        srcDoc={current.code}
-        className="flex-1 w-full bg-white"
-      />
-      <div className="flex items-center gap-2 border-t p-3">
+
+      <div className="console-shell rounded-toy-xl flex-1 p-3">
+        <iframe
+          title={current.title}
+          sandbox="allow-scripts"
+          srcDoc={current.code}
+          className="console-screen h-full min-h-[360px] w-full rounded-3xl"
+        />
+      </div>
+
+      <div className="flex items-center gap-2.5 py-3.5">
         <input
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && changeIt()}
-          placeholder="Change something… (e.g. make it faster, change colours)"
-          className="flex-1 rounded-xl border-2 border-border bg-background p-3 focus:border-primary focus:outline-none"
+          placeholder="Want to change something? Type it…"
+          aria-label="Describe a change to your game"
+          className="btn-toy min-w-0 flex-1 rounded-full border-[3px] border-white bg-white px-4 py-3 font-bold text-ink outline-none placeholder:text-[#b9aad6]"
+          style={{ "--toy-depth": "#eadbfb" } as React.CSSProperties}
         />
         <button
           onClick={changeIt}
           disabled={busy || !instruction.trim()}
-          className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
+          className="btn-toy font-display inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-3 font-bold"
+          style={
+            {
+              background: "linear-gradient(180deg,#37d9f0,var(--color-mint))",
+              color: "#04413a",
+              "--toy-depth": "var(--color-mint-dark)",
+            } as React.CSSProperties
+          }
         >
-          <Wand size={18} /> {busy ? "Changing…" : "Change it"}
+          <Wand2 size={18} /> Change it!
         </button>
       </div>
+
+      {busy && <Building label="Changing your game…" />}
       {changed && (
         <WhatChanged
           oldCode={changed.oldCode}

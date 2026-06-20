@@ -36,9 +36,9 @@ export default function Home() {
   }
 
   return (
-    <>
+    <main className="pb-28 pt-1">
       <Shell onCreated={handleCreated} />
       <MyGames onOpen={(v) => setCurrent(v)} />
-    </>
+    </main>
   );
 }
