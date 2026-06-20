@@ -8,12 +8,14 @@ export function GamesDrawer({
   open,
   games,
   onClose,
+  onToggle,
   onOpen,
   onDelete,
 }: {
   open: boolean;
   games: GameVersion[];
   onClose: () => void;
+  onToggle: () => void;
   onOpen: (v: GameVersion) => void;
   onDelete: (gameId: string) => void;
 }) {
@@ -49,11 +51,12 @@ export function GamesDrawer({
           <GamesPanel games={games} onOpen={onOpen} onDelete={onDelete} />
         </div>
 
-        {/* Grab handle that bulges past the edge — also closes the drawer. */}
+        {/* Grab handle that bulges past the edge — peeks when closed, toggles the drawer. */}
         <button
-          onClick={onClose}
-          aria-label="Close games"
-          className="group absolute right-0 top-1/2 flex h-14 w-5 -translate-y-1/2 translate-x-[calc(100%-1px)] items-center justify-center rounded-r-xl border border-l-0 border-white/60 bg-white/85 shadow-md backdrop-blur"
+          onClick={onToggle}
+          aria-label={open ? "Close games" : "Open games"}
+          aria-expanded={open}
+          className="group pointer-events-auto absolute right-0 top-1/2 flex h-14 w-5 -translate-y-1/2 translate-x-[calc(100%-1px)] items-center justify-center rounded-r-xl border border-l-0 border-white/60 bg-white/85 shadow-md backdrop-blur"
         >
           <span className="h-8 w-1 rounded-full bg-ink/25 transition-colors group-hover:bg-grape" />
         </button>

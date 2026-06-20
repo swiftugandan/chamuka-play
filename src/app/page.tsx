@@ -85,6 +85,7 @@ export default function Home() {
         open={drawerOpen}
         games={games}
         onClose={() => setDrawerOpen(false)}
+        onToggle={() => setDrawerOpen((o) => !o)}
         onOpen={openGame}
         onDelete={handleDelete}
       />
