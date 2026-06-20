@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/react": "^3.0.210",
     "@base-ui/react": "^1.6.0",
     "ai": "^6.0.208",

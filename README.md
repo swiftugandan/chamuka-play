@@ -33,10 +33,15 @@ npm run dev                  # http://localhost:3000
 
 ### Environment
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `AI_GATEWAY_API_KEY` | local dev | Your [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) key. On Vercel, OIDC handles this automatically. |
-| `GAME_MODEL` | optional | AI Gateway model slug for game generation. Defaults to `google/gemini-3.5-flash`. Try `anthropic/claude-sonnet-4.6` for higher quality or `anthropic/claude-haiku-4.5` for lower cost. |
+Pick one way to power generation (see `.env.example`):
+
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_GENERATIVE_AI_API_KEY` | **Free, no credit card.** A [Google AI Studio](https://aistudio.google.com/apikey) key. When set, the app generates with Gemini directly. Recommended. |
+| `GEMINI_MODEL` | Optional Gemini model override (default `gemini-2.5-flash`). |
+| `AI_GATEWAY_API_KEY` | Use the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) instead (OIDC on Vercel). Its free tier generally needs a card on file. |
+| `GAME_MODEL` | Gateway model slug, used only when no Gemini key is set (default `google/gemini-3.5-flash`). |
+| `MOCK_AI=1` | No key at all — runs a real, playable demo game offline. Great for local dev/showcasing. |
 
 ## Scripts
 
