@@ -40,12 +40,10 @@ export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col">
       <AppHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6 lg:max-w-6xl">
-        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-10">
-          <Shell onCreated={handleCreated} />
-          <div className="mt-12 lg:mt-0">
-            <MyGames onOpen={(v) => setCurrent(v)} />
-          </div>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6">
+        <Shell onCreated={handleCreated} />
+        <div className="mt-12">
+          <MyGames onOpen={(v) => setCurrent(v)} />
         </div>
       </main>
       <AppFooter />

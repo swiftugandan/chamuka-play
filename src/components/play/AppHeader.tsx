@@ -4,7 +4,7 @@ import { Mascot } from "./Mascot";
 export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-white/60 bg-white/70 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center gap-2.5 px-4 py-2.5 sm:px-6">
+      <div className="mx-auto flex max-w-2xl items-center gap-2.5 px-4 py-2.5 sm:px-6">
         <Mascot size={36} className="shrink-0" />
         <span className="font-display text-xl font-bold sm:text-2xl">
           Chamuka <span className="text-grape">Play</span>

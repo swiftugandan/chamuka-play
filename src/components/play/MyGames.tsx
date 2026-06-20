@@ -33,7 +33,7 @@ export function MyGames({ onOpen }: { onOpen: (v: GameVersion) => void }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
           {games.map((g) => {
             const t = starterTheme(g.starterId);
             return (
