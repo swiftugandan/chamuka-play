@@ -9,7 +9,8 @@ self-hostable.
 
 ## How it works
 
-1. Pick a kind of game (clicker, catch, maze, quiz, drawing) and describe your idea.
+1. Pick a kind of game — fun (clicker, catch, maze, quiz, drawing, memory) or
+   learning (math, spelling, typing) — and describe your idea.
 2. The app generates a single-file HTML game via the Vercel AI Gateway.
 3. Play it right away (it runs in a sandboxed iframe — keyboard + touch).
 4. "Change something" in plain words → the game updates, and you see a friendly
@@ -38,7 +39,7 @@ Pick one way to power generation (see `.env.example`):
 | Variable | Purpose |
 |---|---|
 | `GOOGLE_GENERATIVE_AI_API_KEY` | **Free, no credit card.** A [Google AI Studio](https://aistudio.google.com/apikey) key. When set, the app generates with Gemini directly. Recommended. |
-| `GEMINI_MODEL` | Optional Gemini model override (default `gemini-2.5-flash`). |
+| `GEMINI_MODEL` | Optional Gemini model override (default `gemini-3.5-flash`). |
 | `AI_GATEWAY_API_KEY` | Use the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) instead (OIDC on Vercel). Its free tier generally needs a card on file. |
 | `GAME_MODEL` | Gateway model slug, used only when no Gemini key is set (default `google/gemini-3.5-flash`). |
 | `MOCK_AI=1` | No key at all — runs a real, playable demo game offline. Great for local dev/showcasing. |
@@ -63,10 +64,10 @@ There is **no database to provision** — it is local-first (IndexedDB in the br
 
 ```
 src/
-  app/                 # routes + API handlers (/api/generate, /api/refine)
-  components/play/     # Shell, PlayView, MyGames, WhatChanged, GameStarterCards
+  app/                 # routes + API handlers (/api/generate, /api/refine, /api/examples)
+  components/play/     # Shell, PlayView, GamesDrawer, WhatChanged, GameStarterCards
   lib/
-    ai/                # Zod schema + generateGame/refineGame (AI Gateway)
+    ai/                # Zod schema + streamGenerateGame/refineGame (Gemini or AI Gateway)
     games/             # starter registry + system prompt
     safety/            # kid prompt filter
     diff/              # friendly change summary
