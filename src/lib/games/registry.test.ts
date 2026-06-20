@@ -13,10 +13,12 @@ describe("game starters", () => {
       "memory",
     ]);
   });
-  it("each starter has a label and description", () => {
+  it("each starter has a label, description, and example prompts", () => {
     for (const s of GAME_STARTERS) {
       expect(s.label.length).toBeGreaterThan(0);
       expect(s.description.length).toBeGreaterThan(0);
+      expect(s.examples.length).toBeGreaterThan(0);
+      expect(s.examples.every((e) => e.length > 0)).toBe(true);
     }
   });
   it("getStarter finds by id and returns undefined otherwise", () => {

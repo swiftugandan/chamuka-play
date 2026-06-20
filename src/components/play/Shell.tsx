@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mascot } from "./Mascot";
 import { Building } from "./Building";
 import { GameStarterCards } from "./GameStarterCards";
+import { getStarter } from "@/lib/games/registry";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
 import { readGameStream } from "@/lib/ai/streamClient";
 import type { Game } from "@/lib/ai/schema";
@@ -16,6 +17,25 @@ export function Shell({
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // AI-generated example prompts per starter (curated list is the fallback).
+  const [aiExamples, setAiExamples] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    if (aiExamples[starterId]) return;
+    let cancelled = false;
+    fetch(`/api/examples?starter=${starterId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (Array.isArray(d?.examples) && d.examples.length > 0) {
+          setAiExamples((m) => ({ ...m, [starterId]: d.examples }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [starterId, aiExamples]);
 
   async function makeGame() {
     if (!prompt.trim()) return;
@@ -50,6 +70,9 @@ export function Shell({
     }
   }
 
+  const examples =
+    aiExamples[starterId] ?? getStarter(starterId)?.examples ?? [];
+
   return (
     <div className="w-full">
       <div className="mb-[18px] flex items-end gap-3">
@@ -71,6 +94,26 @@ export function Shell({
         Pick a kind of game
       </p>
       <GameStarterCards selected={starterId} onSelect={setStarterId} />
+
+      {examples.length > 0 && (
+        <div className="mt-5">
+          <p className="mb-2 px-1 text-sm font-bold text-ink-soft">
+            Need an idea? Tap one:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {examples.map((ex) => (
+              <button
+                key={ex}
+                type="button"
+                onClick={() => setPrompt(ex)}
+                className="rounded-full border-2 border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-grape hover:text-grape"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card-toy mt-[22px] rounded-toy-lg border-[3px] border-white bg-white p-1.5">
         <label
