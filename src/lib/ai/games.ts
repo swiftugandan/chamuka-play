@@ -14,9 +14,10 @@ function isMockEnabled(): boolean {
 // Gemini free tier); otherwise fall back to a Vercel AI Gateway model slug.
 function resolveModel() {
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    return google(process.env.GEMINI_MODEL ?? "gemini-2.5-flash");
+    // `||` (not `??`) so an empty GEMINI_MODEL="" falls back to the default.
+    return google(process.env.GEMINI_MODEL || "gemini-3.5-flash");
   }
-  return process.env.GAME_MODEL ?? "google/gemini-3.5-flash";
+  return process.env.GAME_MODEL || "google/gemini-3.5-flash";
 }
 
 export async function generateGame(input: {
