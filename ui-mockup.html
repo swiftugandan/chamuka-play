@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chamuka Play — Kids UI</title>
+<meta name="description" content="Professional children's UI/UX concept for Chamuka Play" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#34235B; --ink-soft:#7A6CA0; --line:#ECE3F7;
+    --cloud:#FBF3FF; --cloud2:#E9F6FF;
+    --grape:#7A3CF0; --grape-d:#571FBE; --bubble:#FF4FA3;
+    --sun:#FFC233; --sun-d:#E59C00;
+    --sky:#45B6FE; --sky-d:#1E8FE0;
+    --mint:#25D0A8; --mint-d:#10A585;
+    --coral:#FF7A66; --coral-d:#E5523C;
+    --lilac:#A77BFF; --lilac-d:#7E4FE0;
+    --r:18px; --r-lg:28px; --r-xl:36px; --pill:999px;
+    --shadow:0 12px 30px rgba(82,40,150,.13);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:"Nunito",system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(1200px 600px at 12% -8%, #FFE7F4 0%, rgba(255,231,244,0) 55%),
+      radial-gradient(1000px 520px at 100% 0%, #DDF0FF 0%, rgba(221,240,255,0) 50%),
+      radial-gradient(900px 600px at 50% 120%, #EFE2FF 0%, rgba(239,226,255,0) 60%),
+      var(--cloud);
+    min-height:100vh;-webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.f{font-family:"Fredoka",system-ui,sans-serif}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  .wrap{max-width:520px;margin:0 auto;padding:0 18px}
+  .screen{display:none}
+  .screen.active{display:block;animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ---------- App header ---------- */
+  .appbar{display:flex;align-items:center;gap:10px;padding:16px 0 6px}
+  .brand{font-family:"Fredoka";font-weight:700;font-size:20px;letter-spacing:.2px}
+  .brand b{color:var(--grape)}
+  .help{margin-left:auto;width:38px;height:38px;border-radius:var(--pill);
+    background:#fff;color:var(--grape);font-weight:800;font-size:18px;
+    box-shadow:0 4px 0 #E6DAF7;display:grid;place-items:center}
+
+  /* ---------- Mascot greeting ---------- */
+  .greet{display:flex;align-items:flex-end;gap:12px;margin:10px 0 18px}
+  .bubble{position:relative;background:#fff;border-radius:22px;padding:14px 16px;
+    box-shadow:var(--shadow);flex:1}
+  .bubble:after{content:"";position:absolute;left:-9px;bottom:16px;width:18px;height:18px;
+    background:#fff;border-radius:4px;transform:rotate(45deg)}
+  .bubble .hi{font-family:"Fredoka";font-weight:700;font-size:18px}
+  .bubble .sub{color:var(--ink-soft);font-weight:700;font-size:13.5px;margin-top:2px}
+  .mascot{flex:none;filter:drop-shadow(0 8px 12px rgba(122,60,240,.28))}
+  .float{animation:float 4s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+
+  /* ---------- Section label ---------- */
+  .label{font-family:"Fredoka";font-weight:600;font-size:13px;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:.12em;margin:4px 4px 12px}
+
+  /* ---------- Starter tiles ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .tile{position:relative;text-align:left;background:#fff;border-radius:var(--r-lg);
+    padding:16px 16px 18px;border:3px solid #fff;transition:transform .12s, box-shadow .12s;
+    box-shadow:0 7px 0 var(--c-d), 0 14px 22px rgba(82,40,150,.12)}
+  .tile:active{transform:translateY(5px);box-shadow:0 2px 0 var(--c-d),0 6px 12px rgba(82,40,150,.12)}
+  .tile.sel{border-color:var(--c);background:linear-gradient(180deg,var(--c-l),#fff)}
+  .tile .ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;
+    font-size:28px;background:var(--c-l);box-shadow:inset 0 -3px 0 rgba(0,0,0,.05)}
+  .tile .t{font-family:"Fredoka";font-weight:600;font-size:16px;margin:12px 0 3px}
+  .tile .d{font-size:12.5px;color:var(--ink-soft);font-weight:700;line-height:1.35}
+  .tile .check{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;
+    background:var(--c);color:#fff;display:none;place-items:center;font-size:14px;
+    box-shadow:0 3px 8px rgba(0,0,0,.18)}
+  .tile.sel .check{display:grid}
+
+  /* ---------- Idea input ---------- */
+  .idea-wrap{margin-top:22px;background:#fff;border-radius:var(--r-lg);padding:6px;
+    box-shadow:0 7px 0 #EADBFB,0 16px 26px rgba(82,40,150,.1);border:3px solid #fff}
+  .idea-head{display:flex;align-items:center;gap:8px;padding:10px 12px 4px;font-family:"Fredoka";
+    font-weight:600;font-size:14px;color:var(--grape)}
+  .idea{width:100%;border:none;outline:none;resize:none;background:transparent;
+    font-family:"Nunito";font-weight:700;font-size:16px;color:var(--ink);padding:4px 12px 14px;line-height:1.4}
+  .idea::placeholder{color:#B9AAD6}
+
+  /* ---------- Big make button ---------- */
+  .make{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    margin-top:18px;padding:18px;border-radius:var(--pill);color:#fff;
+    font-family:"Fredoka";font-weight:700;font-size:21px;
+    background:linear-gradient(180deg,#9B5BFF,var(--grape) 60%,var(--bubble) 220%);
+    box-shadow:0 9px 0 var(--grape-d),0 18px 28px rgba(122,60,240,.4);
+    transition:transform .09s,box-shadow .09s}
+  .make:active{transform:translateY(6px);box-shadow:0 3px 0 var(--grape-d),0 8px 14px rgba(122,60,240,.35)}
+  .make .spark{font-size:22px}
+
+  /* ---------- Your games ---------- */
+  .shelf-h{display:flex;align-items:baseline;justify-content:space-between;margin:34px 4px 14px}
+  .shelf-h h2{margin:0;font-size:22px;font-weight:700}
+  .shelf-h span{font-weight:800;font-size:13px;color:var(--ink-soft)}
+  .shelf{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding-bottom:120px}
+  .cart{text-align:left;border-radius:22px;overflow:hidden;background:#fff;border:3px solid #fff;
+    box-shadow:0 7px 0 #E7DAFA,0 14px 22px rgba(82,40,150,.1);transition:transform .12s}
+  .cart:active{transform:translateY(4px)}
+  .cart .thumb{height:84px;display:grid;place-items:center;font-size:38px}
+  .cart .meta{padding:10px 12px 12px}
+  .cart .meta .n{font-family:"Fredoka";font-weight:600;font-size:14.5px}
+  .cart .meta .p{font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:2px}
+
+  /* ---------- Play screen ---------- */
+  .play{min-height:100vh;display:flex;flex-direction:column;padding-bottom:0}
+  .topbar{display:flex;align-items:center;gap:10px;padding:16px 0 12px}
+  .back{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--ink);
+    font-family:"Fredoka";font-weight:600;font-size:14px;padding:9px 14px;border-radius:var(--pill);
+    box-shadow:0 4px 0 #E6DAF7}
+  .title-pill{display:inline-flex;align-items:center;gap:7px;background:var(--sun);color:#5A3B00;
+    font-family:"Fredoka";font-weight:700;font-size:15px;padding:9px 16px;border-radius:var(--pill);
+    box-shadow:0 4px 0 var(--sun-d)}
+  .console{flex:1;margin:2px 0 0;border-radius:var(--r-xl);padding:12px;
+    background:linear-gradient(160deg,#8A57FF,#6A2FE0);
+    box-shadow:0 16px 30px rgba(106,47,224,.35);position:relative}
+  .screen-in{height:100%;min-height:360px;border-radius:24px;overflow:hidden;position:relative;
+    background:radial-gradient(120% 100% at 50% 0%,#173a8a,#0b1c44);
+    box-shadow:inset 0 0 0 4px rgba(255,255,255,.12), inset 0 10px 30px rgba(0,0,0,.4)}
+  .game{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    color:#fff;font-family:"Fredoka"}
+  .hud{width:100%;display:flex;justify-content:space-between;padding:14px 18px;font-size:14px}
+  .chip{background:rgba(255,255,255,.16);padding:5px 12px;border-radius:var(--pill)}
+  .cat{font-size:64px;margin-top:30px;animation:hop 1.1s ease-in-out infinite}
+  @keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-26px)}}
+  .stars{display:flex;gap:26px;font-size:30px;margin-top:18px;opacity:.95}
+  .ground{position:absolute;bottom:0;left:0;right:0;height:46px;background:linear-gradient(#3AA0FF,#2C7BE0)}
+  .tinker{display:flex;align-items:center;gap:10px;padding:14px 0 18px}
+  .tinker input{flex:1;border:3px solid #fff;background:#fff;border-radius:var(--pill);
+    padding:13px 16px;font-family:"Nunito";font-weight:700;font-size:14.5px;color:var(--ink);outline:none;
+    box-shadow:0 5px 0 #EADBFB}
+  .tinker input::placeholder{color:#B9AAD6}
+  .change{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(180deg,#37D9F0,var(--mint));
+    color:#04413A;font-family:"Fredoka";font-weight:700;font-size:15px;padding:13px 18px;border-radius:var(--pill);
+    box-shadow:0 6px 0 var(--mint-d);white-space:nowrap}
+  .change:active{transform:translateY(4px);box-shadow:0 2px 0 var(--mint-d)}
+
+  /* ---------- Building (loading) ---------- */
+  .building{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 28px}
+  .building .ttl{font-family:"Fredoka";font-weight:700;font-size:24px;margin-top:22px}
+  .building .sub{color:var(--ink-soft);font-weight:700;margin-top:6px}
+  .bar{margin-top:24px;width:min(320px,80%);height:16px;border-radius:var(--pill);background:#fff;
+    overflow:hidden;box-shadow:inset 0 2px 6px rgba(82,40,150,.15)}
+  .bar i{display:block;height:100%;width:40%;border-radius:var(--pill);
+    background:linear-gradient(90deg,var(--grape),var(--bubble));animation:load 1.6s ease-in-out infinite}
+  @keyframes load{0%{margin-left:-40%}100%{margin-left:100%}}
+  .cogs{display:flex;gap:10px;margin-top:18px;font-size:22px}
+  .spin{animation:spin 2.4s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- Ta-da modal ---------- */
+  .dim{position:fixed;inset:0;background:rgba(38,20,72,.55);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;padding:24px;z-index:40}
+  .tada{background:#fff;border-radius:var(--r-xl);padding:30px 24px 24px;text-align:center;
+    max-width:360px;width:100%;box-shadow:0 24px 60px rgba(38,20,72,.4);position:relative;overflow:hidden}
+  .tada h2{font-size:24px;margin:14px 0 6px}
+  .tada p{color:var(--ink-soft);font-weight:700;margin:0 0 20px}
+  .tada .keep{width:100%;padding:15px;border-radius:var(--pill);color:#04413A;
+    font-family:"Fredoka";font-weight:700;font-size:17px;background:linear-gradient(180deg,#37D9F0,var(--mint));
+    box-shadow:0 7px 0 var(--mint-d)}
+  .tada .keep:active{transform:translateY(4px);box-shadow:0 3px 0 var(--mint-d)}
+  .confetti{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;opacity:.9;animation:fall 2.6s linear infinite}
+  @keyframes fall{0%{transform:translateY(-20px) rotate(0)}100%{transform:translateY(420px) rotate(420deg)}}
+
+  /* ---------- Preview switcher (mock-only) ---------- */
+  .switch{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;
+    display:flex;gap:4px;padding:5px;border-radius:var(--pill);background:rgba(52,35,91,.92);
+    box-shadow:0 12px 30px rgba(0,0,0,.3)}
+  .switch button{color:#D9CCF5;font-family:"Fredoka";font-weight:600;font-size:13px;
+    padding:8px 13px;border-radius:var(--pill)}
+  .switch button.on{background:#fff;color:var(--grape)}
+
+  :focus-visible{outline:3px solid var(--sky);outline-offset:3px;border-radius:8px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ===================== MAKE ===================== -->
+<section id="make" class="screen active">
+  <div class="wrap">
+    <header class="appbar">
+      <span class="brand">Chamuka <b>Play</b></span>
+      <button class="help" aria-label="Help">?</button>
+    </header>
+
+    <div class="greet">
+      <span class="mascot float" id="m1"></span>
+      <div class="bubble">
+        <div class="hi">Hi, I'm Mishi! 👋</div>
+        <div class="sub">What do you want to make today?</div>
+      </div>
+    </div>
+
+    <div class="label">Pick a kind of game</div>
+    <div class="tiles" id="tiles"></div>
+
+    <div class="idea-wrap">
+      <div class="idea-head">✏️ Your idea</div>
+      <textarea class="idea" rows="2" placeholder="like “a cat that jumps over stars”">a cat that jumps over stars</textarea>
+    </div>
+
+    <button class="make" onclick="show('building'); setTimeout(()=>show('play'),2200)">
+      <span class="spark">✨</span> Make my game!
+    </button>
+
+    <div class="shelf-h">
+      <h2>Your games</h2><span>3 made</span>
+    </div>
+    <div class="shelf" id="shelf"></div>
+  </div>
+</section>
+
+<!-- ===================== BUILDING ===================== -->
+<section id="building" class="screen">
+  <div class="building">
+    <span class="mascot" id="m2"></span>
+    <div class="ttl">Building your game…</div>
+    <div class="sub">Mishi is putting the pieces together</div>
+    <div class="bar"><i></i></div>
+    <div class="cogs"><span class="spin">⚙️</span><span>🧩</span><span class="spin">⚙️</span></div>
+  </div>
+</section>
+
+<!-- ===================== PLAY ===================== -->
+<section id="play" class="screen">
+  <div class="wrap play">
+    <div class="topbar">
+      <button class="back" onclick="show('make')">← Make another</button>
+      <span class="title-pill">🌟 Star Jumper</span>
+    </div>
+
+    <div class="console">
+      <div class="screen-in">
+        <div class="game">
+          <div class="hud"><span class="chip">Score 7</span><span class="chip">❤️❤️❤️</span></div>
+          <div class="cat">🐱</div>
+          <div class="stars"><span>⭐</span><span>⭐</span><span>⭐</span></div>
+          <div class="ground"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tinker">
+      <input placeholder="Want to change something? Type it…" value="make the cat jump higher" />
+      <button class="change" onclick="show('changed')">Change it!</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TA-DA ===================== -->
+<section id="changed" class="screen">
+  <!-- play behind (static) -->
+  <div class="wrap play" style="opacity:.5;pointer-events:none">
+    <div class="topbar"><span class="back">← Make another</span><span class="title-pill">🌟 Star Jumper</span></div>
+    <div class="console"><div class="screen-in"><div class="game"><div class="ground"></div></div></div></div>
+    <div class="tinker"><input value="make the cat jump higher" /><span class="change">Change it!</span></div>
+  </div>
+  <div class="dim">
+    <div class="tada" id="tada">
+      <span class="mascot" id="m3"></span>
+      <h2>Ta-da! 🎉</h2>
+      <p>I added 8 lines and removed 2 lines of code.</p>
+      <button class="keep" onclick="show('play')">Keep playing!</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== preview switcher ===================== -->
+<nav class="switch" id="switch">
+  <button data-go="make">Make</button>
+  <button data-go="building">Building</button>
+  <button data-go="play">Play</button>
+  <button data-go="changed">Ta-da</button>
+</nav>
+
+<script>
+  // ---- Mascot "Mishi": a friendly blob with a star antenna ----
+  function mascot(size, cheer){
+    const arms = cheer
+      ? `<path d="M26 92 q-16 -6 -20 -24" stroke="#5B23C2" stroke-width="11" stroke-linecap="round" fill="none"/>
+         <path d="M124 92 q16 -6 20 -24" stroke="#5B23C2" stroke-width="11" stroke-linecap="round" fill="none"/>`
+      : `<path d="M24 96 q-14 6 -16 22" stroke="#5B23C2" stroke-width="11" stroke-linecap="round" fill="none"/>
+         <path d="M126 96 q14 6 16 22" stroke="#5B23C2" stroke-width="11" stroke-linecap="round" fill="none"/>`;
+    const mouth = cheer
+      ? `<path d="M58 86 q17 26 34 0 q-17 10 -34 0Z" fill="#3A1C6E"/>`
+      : `<path d="M60 84 q15 16 30 0" stroke="#3A1C6E" stroke-width="6" stroke-linecap="round" fill="none"/>`;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 150 150" fill="none" aria-hidden="true">
+      <defs><linearGradient id="mb${size}${cheer?1:0}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#A06BFF"/><stop offset="1" stop-color="#7A3CF0"/></linearGradient></defs>
+      <line x1="75" y1="34" x2="75" y2="14" stroke="#7A3CF0" stroke-width="6" stroke-linecap="round"/>
+      <path d="M75 2 l5 9 10 1 -7 8 2 10 -10 -5 -10 5 2 -10 -7 -8 10 -1Z" fill="#FFC233"/>
+      ${arms}
+      <path d="M75 30 C40 30 26 56 26 86 C26 118 48 138 75 138 C102 138 124 118 124 86 C124 56 110 30 75 30Z" fill="url(#mb${size}${cheer?1:0})"/>
+      <ellipse cx="56" cy="74" rx="14" ry="16" fill="#fff"/><ellipse cx="94" cy="74" rx="14" ry="16" fill="#fff"/>
+      <circle cx="58" cy="77" r="6.5" fill="#2B1454"/><circle cx="92" cy="77" r="6.5" fill="#2B1454"/>
+      <circle cx="55" cy="74" r="2.2" fill="#fff"/><circle cx="89" cy="74" r="2.2" fill="#fff"/>
+      <circle cx="44" cy="98" r="7" fill="#FF7FB8" opacity=".7"/><circle cx="106" cy="98" r="7" fill="#FF7FB8" opacity=".7"/>
+      ${mouth}
+    </svg>`;
+  }
+  document.getElementById("m1").innerHTML = mascot(78,false);
+  document.getElementById("m2").innerHTML = mascot(110,false);
+  document.getElementById("m3").innerHTML = mascot(96,true);
+
+  // ---- Starter tiles ----
+  const STARTERS = [
+    {id:"clicker",t:"Clicker",d:"Tap fast to score before time runs out",e:"👆",c:"--sun",cd:"--sun-d",cl:"#FFF2D2"},
+    {id:"catch",t:"Catch",d:"Move and catch things falling down",e:"🪣",c:"--sky",cd:"--sky-d",cl:"#DCF0FF"},
+    {id:"maze",t:"Maze",d:"Find your way to the goal",e:"🧩",c:"--mint",cd:"--mint-d",cl:"#D2F7EE"},
+    {id:"quiz",t:"Quiz",d:"Answer fun questions, keep score",e:"❓",c:"--coral",cd:"--coral-d",cl:"#FFE2DB"},
+    {id:"drawing",t:"Drawing",d:"Doodle with colours and brushes",e:"🎨",c:"--lilac",cd:"--lilac-d",cl:"#ECE2FF"},
+  ];
+  let sel = "clicker";
+  function tiles(){
+    document.getElementById("tiles").innerHTML = STARTERS.map(s=>`
+      <button class="tile ${sel===s.id?'sel':''}" style="--c:var(${s.c});--c-d:var(${s.cd});--c-l:${s.cl}"
+        onclick="sel='${s.id}';tiles()">
+        <span class="check">✓</span>
+        <span class="ico">${s.e}</span>
+        <div class="t">${s.t}</div><div class="d">${s.d}</div>
+      </button>`).join("");
+  }
+  tiles();
+
+  // ---- Your games shelf ----
+  const GAMES = [
+    {n:"Star Jumper",p:"a cat that jumps over stars",e:"🐱",bg:"#DCF0FF"},
+    {n:"Bubble Pop",p:"pop bubbles before they float away",e:"🫧",bg:"#FFE2DB"},
+    {n:"Apple Catch",p:"catch falling apples in a basket",e:"🍎",bg:"#D2F7EE"},
+  ];
+  document.getElementById("shelf").innerHTML = GAMES.map(g=>`
+    <button class="cart">
+      <div class="thumb" style="background:${g.bg}">${g.e}</div>
+      <div class="meta"><div class="n">${g.n}</div><div class="p">${g.p}</div></div>
+    </button>`).join("");
+
+  // ---- Confetti for Ta-da ----
+  (function(){
+    const cols=["#FFC233","#FF4FA3","#45B6FE","#25D0A8","#A77BFF"];
+    let html="";
+    for(let i=0;i<24;i++){
+      html+=`<span class="confetti" style="left:${Math.random()*100}%;background:${cols[i%5]};
+        animation-delay:${(Math.random()*2.4).toFixed(2)}s;transform:rotate(${Math.random()*360}deg)"></span>`;
+    }
+    document.getElementById("tada").insertAdjacentHTML("afterbegin",html);
+  })();
+
+  // ---- Preview switcher ----
+  function show(id){
+    document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));
+    document.querySelectorAll("#switch button").forEach(b=>b.classList.toggle("on",b.dataset.go===id));
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll("#switch button").forEach(b=>b.onclick=()=>show(b.dataset.go));
+  show("make");
+</script>
+</body>
+</html>
