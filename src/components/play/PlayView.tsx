@@ -1,7 +1,11 @@
 "use client";
-import { useState } from "react";
-import { ArrowLeft, Wand2 } from "lucide-react";
-import { saveVersion, type GameVersion } from "@/lib/storage/repository";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Redo2, Undo2, Wand2 } from "lucide-react";
+import {
+  saveVersion,
+  getVersions,
+  type GameVersion,
+} from "@/lib/storage/repository";
 import { readGameStream } from "@/lib/ai/streamClient";
 import { Building } from "./Building";
 import { WhatChanged } from "./WhatChanged";
@@ -21,6 +25,18 @@ export function PlayView({
     oldCode: string;
     newCode: string;
   } | null>(null);
+
+  // All saved versions of this game (newest first) for undo/redo.
+  const [versions, setVersions] = useState<GameVersion[]>([]);
+  useEffect(() => {
+    getVersions(current.game_id)
+      .then(setVersions)
+      .catch(() => setVersions([]));
+  }, [current.game_id, current.version_id]);
+
+  const idx = versions.findIndex((v) => v.version_id === current.version_id);
+  const canUndo = idx >= 0 && idx < versions.length - 1;
+  const canRedo = idx > 0;
 
   async function changeIt() {
     if (!instruction.trim()) return;
@@ -53,7 +69,7 @@ export function PlayView({
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
-      <div className="flex items-center gap-2.5 pb-3 pt-4">
+      <div className="flex items-center gap-2 pb-3 pt-4">
         <button
           onClick={onNewGame}
           className="btn-toy font-display inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-2.5 text-sm font-semibold text-ink"
@@ -64,7 +80,7 @@ export function PlayView({
           <span className="sm:hidden">New</span>
         </button>
         <span
-          className="btn-toy font-display inline-flex min-w-0 max-w-[55vw] items-center gap-1.5 rounded-full px-4 py-2.5 text-[15px] font-bold sm:max-w-sm"
+          className="btn-toy font-display inline-flex min-w-0 max-w-[38vw] items-center gap-1.5 rounded-full px-4 py-2.5 text-[15px] font-bold sm:max-w-sm"
           style={
             {
               background: "var(--color-sun)",
@@ -76,6 +92,31 @@ export function PlayView({
           <span aria-hidden="true">🌟</span>
           <span className="truncate">{current.title}</span>
         </span>
+
+        {(canUndo || canRedo) && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => onUpdated(versions[idx + 1])}
+              disabled={!canUndo}
+              aria-label="Undo the last change"
+              className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+              style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+            >
+              <Undo2 size={18} />
+              <span className="hidden sm:inline">Undo</span>
+            </button>
+            <button
+              onClick={() => onUpdated(versions[idx - 1])}
+              disabled={!canRedo}
+              aria-label="Redo the change"
+              className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+              style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+            >
+              <Redo2 size={18} />
+              <span className="hidden sm:inline">Redo</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="console-shell rounded-toy-xl flex-1 p-2.5 sm:p-3">
