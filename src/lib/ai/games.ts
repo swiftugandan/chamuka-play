@@ -1,6 +1,7 @@
 import "server-only";
-import { streamText, Output } from "ai";
+import { streamText, generateText, Output } from "ai";
 import { google } from "@ai-sdk/google";
+import { z } from "zod";
 import { GAME_SYSTEM_PROMPT } from "@/lib/games/systemPrompt";
 import { getStarter } from "@/lib/games/registry";
 import { GameSchema, type Game } from "./schema";
@@ -90,16 +91,67 @@ export function streamGenerateGame(input: {
   return objectStreamResponse(result);
 }
 
-export function streamRefineGame(input: {
+// Refinement uses targeted find/replace edits instead of regenerating the whole
+// file: a fast model can't reliably re-emit ~30KB unchanged (it tends to gut the
+// game). Asking only for edits keeps every untouched byte identical by
+// construction — so existing functionality is preserved — and is far faster.
+const EditsSchema = z.object({
+  title: z.string().optional(),
+  edits: z
+    .array(z.object({ find: z.string(), replace: z.string() }))
+    .min(1)
+    .max(20),
+});
+
+function applyEdits(
+  code: string,
+  edits: { find: string; replace: string }[],
+): { code: string; applied: number } {
+  let out = code;
+  let applied = 0;
+  for (const edit of edits) {
+    if (!edit.find) continue;
+    const at = out.indexOf(edit.find);
+    if (at !== -1) {
+      out = out.slice(0, at) + edit.replace + out.slice(at + edit.find.length);
+      applied++;
+    }
+  }
+  return { code: out, applied };
+}
+
+export function refineGame(input: {
   code: string;
   instruction: string;
 }): Response {
   if (isMockEnabled()) return singleObjectResponse(mockRefine(input));
-  const result = streamText({
-    model: resolveModel(),
-    system: GAME_SYSTEM_PROMPT,
-    prompt: `Here is the current single-file HTML game:\n\n${input.code}\n\nChange it as follows, then return the COMPLETE updated file: ${input.instruction}`,
-    output: Output.object({ schema: GameSchema }),
-  });
-  return objectStreamResponse(result);
+  const game = (async (): Promise<Game> => {
+    const { output } = await generateText({
+      model: resolveModel(),
+      system: GAME_SYSTEM_PROMPT,
+      prompt: `Here is a complete, working single-file HTML game:
+
+<current-game>
+${input.code}
+</current-game>
+
+The child asked for this one change:
+"${input.instruction}"
+
+Return a SMALL set of precise find/replace edits that make ONLY that change.
+For each edit:
+- "find": a snippet copied EXACTLY (character-for-character, including whitespace and indentation) from the game above — the smallest snippet that uniquely locates the spot to change.
+- "replace": what that snippet becomes.
+
+Rules:
+- Change only what the request needs. Every other byte of the game stays identical, so all existing features keep working.
+- Prefer several small, unique edits over one giant edit. Never paste the whole file.
+- The edits must keep the game running with zero errors and fully playable.
+- Include "title" ONLY if the change is about the game's name.`,
+      output: Output.object({ schema: EditsSchema }),
+    });
+    const { code } = applyEdits(input.code, output.edits);
+    return { title: output.title ?? "", code };
+  })();
+  return singleObjectResponse(game);
 }
