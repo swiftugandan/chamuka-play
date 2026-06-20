@@ -27,6 +27,12 @@
   --color-coral-dark: #e5523c;
   --color-lilac: #a77bff;
   --color-lilac-dark: #7e4fe0;
+  --color-indigo: #6172f3;
+  --color-indigo-dark: #3f4fd6;
+  --color-rose: #fb6f92;
+  --color-rose-dark: #e34d73;
+  --color-teal: #0fb5ad;
+  --color-teal-dark: #0a8a84;
 
   --font-display: var(--font-fredoka);
   --font-sans: var(--font-nunito);

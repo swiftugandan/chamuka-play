@@ -8,6 +8,7 @@ Rules you ALWAYS follow:
 - Write code a curious kid could read: short functions, clear names, and a friendly one-line comment above each important part explaining what it does.
 - The game MUST be fully responsive: include <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />, fill the whole screen at any size (use 100%/100vw/100vh or a <canvas> resized to window.innerWidth/innerHeight), avoid fixed pixel widths that overflow, and re-layout on window resize. It must look right on a small phone and a large desktop with no horizontal scrolling.
 - Keep everything appropriate for children: friendly themes, no gore, no scary or adult content.
+- If it is a learning game (math, spelling, typing, quiz, etc.), make it genuinely teach that skill — real questions/words/sums with right-and-wrong feedback — while staying playful and encouraging.
 - If something is underspecified, make a fun, sensible choice rather than leaving it incomplete.
 - The "title" field is a short, fun name for the game.
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Mascot } from "./Mascot";
 import { Building } from "./Building";
 import { GameStarterCards } from "./GameStarterCards";
-import { getStarter } from "@/lib/games/registry";
+import { getStarter, startersByCategory } from "@/lib/games/registry";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
 import { readGameStream } from "@/lib/ai/streamClient";
 import type { Game } from "@/lib/ai/schema";
@@ -93,7 +93,20 @@ export function Shell({
       <p className="font-display mx-1 mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft">
         Pick a kind of game
       </p>
-      <GameStarterCards selected={starterId} onSelect={setStarterId} />
+      <GameStarterCards
+        starters={startersByCategory("fun")}
+        selected={starterId}
+        onSelect={setStarterId}
+      />
+
+      <p className="font-display mx-1 mb-3 mt-6 text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft">
+        Or a learning game 📚
+      </p>
+      <GameStarterCards
+        starters={startersByCategory("learning")}
+        selected={starterId}
+        onSelect={setStarterId}
+      />
 
       {examples.length > 0 && (
         <div className="mt-5">

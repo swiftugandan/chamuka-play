@@ -49,6 +49,24 @@ const THEMES: Record<string, StarterTheme> = {
     colorDark: "var(--color-bubble-dark)",
     tint: "#ffe0ef",
   },
+  math: {
+    emoji: "🔢",
+    color: "var(--color-indigo)",
+    colorDark: "var(--color-indigo-dark)",
+    tint: "#e6e9ff",
+  },
+  spelling: {
+    emoji: "🔤",
+    color: "var(--color-rose)",
+    colorDark: "var(--color-rose-dark)",
+    tint: "#ffe4ec",
+  },
+  typing: {
+    emoji: "⌨️",
+    color: "var(--color-teal)",
+    colorDark: "var(--color-teal-dark)",
+    tint: "#d5f5f3",
+  },
 };
 
 const FALLBACK: StarterTheme = THEMES.clicker;

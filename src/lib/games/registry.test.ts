@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { GAME_STARTERS, getStarter } from "./registry";
 
 describe("game starters", () => {
-  it("has the six v1 starters", () => {
+  it("has the fun and learning starters", () => {
     const ids = GAME_STARTERS.map((s) => s.id);
     expect(ids).toEqual([
       "clicker",
@@ -11,7 +11,16 @@ describe("game starters", () => {
       "quiz",
       "drawing",
       "memory",
+      "math",
+      "spelling",
+      "typing",
     ]);
+  });
+
+  it("has three learning categories", () => {
+    expect(GAME_STARTERS.filter((s) => s.category === "learning")).toHaveLength(
+      3,
+    );
   });
   it("each starter has a label, description, and example prompts", () => {
     for (const s of GAME_STARTERS) {

@@ -1,17 +1,19 @@
 "use client";
-import { GAME_STARTERS } from "@/lib/games/registry";
+import type { GameStarter } from "@/lib/games/registry";
 import { starterTheme } from "./starterTheme";
 
 export function GameStarterCards({
+  starters,
   selected,
   onSelect,
 }: {
+  starters: GameStarter[];
   selected: string;
   onSelect: (id: string) => void;
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-      {GAME_STARTERS.map((s) => {
+      {starters.map((s) => {
         const t = starterTheme(s.id);
         const isSel = selected === s.id;
         return (
