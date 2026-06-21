@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { Mascot } from "./Mascot";
 import { Building } from "./Building";
 import { GameStarterCards } from "./GameStarterCards";
+import { MicButton } from "./MicButton";
 import { getStarter, startersByCategory } from "@/lib/games/registry";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
 import { readGameStream } from "@/lib/ai/streamClient";
+import { networkErrorNotice } from "@/lib/net/networkErrorNotice";
 import type { Game } from "@/lib/ai/schema";
 
 export function Shell({
@@ -64,7 +66,7 @@ export function Shell({
       }
       onCreated(game, starterId, prompt);
     } catch {
-      setError("Something went wrong making your game. Try again!");
+      setError(networkErrorNotice(navigator.onLine));
     } finally {
       setBusy(false);
     }
@@ -135,14 +137,21 @@ export function Shell({
         >
           ✏️ Your idea
         </label>
-        <textarea
-          id="idea"
-          rows={2}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="like “a cat that jumps over stars”"
-          className="w-full resize-none bg-transparent px-3 pb-3.5 text-base font-bold text-ink outline-none placeholder:text-[#b9aad6]"
-        />
+        <div className="flex items-end gap-1.5">
+          <textarea
+            id="idea"
+            rows={2}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="like “a cat that jumps over stars”"
+            className="min-w-0 flex-1 resize-none bg-transparent px-3 pb-3.5 text-base font-bold text-ink outline-none placeholder:text-[#b9aad6]"
+          />
+          <MicButton
+            value={prompt}
+            onChange={setPrompt}
+            className="mb-2.5 mr-1.5"
+          />
+        </div>
       </div>
 
       {error && <p className="mt-2 px-1 font-bold text-coral">{error}</p>}

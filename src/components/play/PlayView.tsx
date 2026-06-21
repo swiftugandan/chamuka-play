@@ -9,8 +9,21 @@ import {
 } from "@/lib/storage/repository";
 import { readRefineStream } from "@/lib/ai/streamClient";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
+import { networkErrorNotice } from "@/lib/net/networkErrorNotice";
 import { ChangeDrawer } from "./ChangeDrawer";
 import { ConfirmDialog } from "./ConfirmDialog";
+
+// Kid-facing notices for the change loop. The "couldn't apply" case is a teaching
+// moment — it models the shape of a good prompt (one small change, plain words)
+// rather than the dead-end "say it a different way", since prompting better is the
+// very skill the child is here to practise.
+const NOTICES = {
+  unsafe: "Let's keep it friendly and fun!",
+  failed:
+    "Hmm, that one didn't work. Try one small change in plain words — like " +
+    "“make the ball red” or “make it go faster”.",
+  error: "Oops — something went wrong. Try again!",
+} as const;
 
 // True below the `lg` breakpoint, where the change drawer would cover the game.
 // SSR (and jsdom, which lacks matchMedia) reports false → the panel defaults open.
@@ -96,7 +109,7 @@ export function PlayView({
     // client check is UX; the /api/refine route re-checks as the real guard.
     const safety = isPromptSafeForKids(text);
     if (!safety.safe) {
-      setNotice(safety.reason ?? "Let's keep it friendly and fun!");
+      setNotice(safety.reason ?? NOTICES.unsafe);
       return;
     }
     setBusy(true);
@@ -108,12 +121,12 @@ export function PlayView({
         body: JSON.stringify({ code: current.code, instruction: text }),
       });
       if (!res.ok) {
-        setNotice("Oops — something went wrong. Try again!");
+        setNotice(NOTICES.error);
         return;
       }
       const data = await readRefineStream(res);
       if ("error" in data || data.edits.length === 0) {
-        setNotice("Hmm, I couldn't make that change — try saying it a different way!");
+        setNotice(NOTICES.failed);
         return;
       }
       const ts = Date.now();
@@ -132,7 +145,7 @@ export function PlayView({
       onUpdated(version);
       setInstruction("");
     } catch {
-      setNotice("Oops — something went wrong. Try again!");
+      setNotice(networkErrorNotice(navigator.onLine));
     } finally {
       setBusy(false);
     }
