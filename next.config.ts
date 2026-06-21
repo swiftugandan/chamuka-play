@@ -11,6 +11,29 @@ const nextConfig: NextConfig = {
   // covers the whole subnet so it survives the device's DHCP lease changing.
   // Dev-only — has no effect on production builds.
   allowedDevOrigins: ["192.168.0.*"],
+  // The service worker must be served as JS, never cached (so updates land
+  // immediately), and locked to same-origin scripts.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'self'; script-src 'self'",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
