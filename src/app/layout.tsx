@@ -17,6 +17,8 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "Chamuka Play",
   description: "Make your own games and learn by making.",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Chamuka" },
+  icons: { apple: "/apple-icon-180.png" },
 };
 
 export const viewport: Viewport = {
