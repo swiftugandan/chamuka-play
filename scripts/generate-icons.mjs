@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
 // Mishi (happy mood) — same paths/colors as src/components/play/Mascot.tsx.
 const MISHI = `
@@ -46,6 +46,36 @@ async function render(svg, size, name) {
   console.log("wrote", name);
 }
 
+// Pack one or more square PNGs into a single .ico container (sharp can't write
+// ICO, so we assemble the format by hand: a 6-byte header, one 16-byte
+// directory entry per image, then the PNG blobs back to back).
+async function makeIco(svg, sizes) {
+  const pngs = await Promise.all(
+    sizes.map((s) =>
+      sharp(Buffer.from(svg)).resize(s, s).png().toBuffer(),
+    ),
+  );
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type: icon
+  header.writeUInt16LE(sizes.length, 4); // image count
+  let offset = 6 + 16 * sizes.length;
+  const entries = sizes.map((s, i) => {
+    const e = Buffer.alloc(16);
+    e.writeUInt8(s >= 256 ? 0 : s, 0); // width (0 means 256)
+    e.writeUInt8(s >= 256 ? 0 : s, 1); // height
+    e.writeUInt8(0, 2); // palette
+    e.writeUInt8(0, 3); // reserved
+    e.writeUInt16LE(1, 4); // color planes
+    e.writeUInt16LE(32, 6); // bits per pixel
+    e.writeUInt32LE(pngs[i].length, 8); // image size
+    e.writeUInt32LE(offset, 12); // image offset
+    offset += pngs[i].length;
+    return e;
+  });
+  return Buffer.concat([header, ...entries, ...pngs]);
+}
+
 await mkdir(outDir, { recursive: true });
 const base = iconSVG(0.64);
 const maskable = iconSVG(0.52);
@@ -53,3 +83,9 @@ await render(base, 192, "icon-192.png");
 await render(base, 512, "icon-512.png");
 await render(base, 180, "apple-icon-180.png");
 await render(maskable, 512, "icon-maskable-512.png");
+
+// Browser tab favicon: a branded multi-resolution .ico in the app root, which
+// Next auto-serves and links from app/favicon.ico.
+const appDir = path.join(process.cwd(), "src", "app");
+await writeFile(path.join(appDir, "favicon.ico"), await makeIco(base, [16, 32, 48]));
+console.log("wrote favicon.ico");
