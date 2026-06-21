@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PlayView } from "./PlayView";
 import { db, type GameVersion } from "@/lib/storage/db";
+import { getVersions } from "@/lib/storage/repository";
 
 const current: GameVersion = {
   version_id: "g_1",
@@ -53,6 +54,70 @@ describe("PlayView refinement", () => {
     ]);
     expect(saved.code).toBe("<html>speed = 9</html>");
     expect(saved.suggestions).toEqual(["add a high score", "make it harder"]);
+  });
+
+  it("drops the versions that came after when reverting to an earlier one", async () => {
+    await db.versions.clear();
+    const older: GameVersion = {
+      ...current,
+      version_id: "g_0",
+      timestamp: 0,
+    };
+    await db.versions.put(older);
+    await db.versions.put(current); // version_id g_1, timestamp 1 (newest)
+
+    const onUpdated = vi.fn();
+    render(
+      <PlayView current={current} onNewGame={() => {}} onUpdated={onUpdated} />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /go back to the version before/i,
+      }),
+    );
+    // a confirmation is required before the destructive revert
+    fireEvent.click(await screen.findByRole("button", { name: /yes, go back/i }));
+
+    await waitFor(() =>
+      expect(onUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ version_id: "g_0" }),
+      ),
+    );
+    const remaining = await getVersions("g");
+    expect(remaining.map((v) => v.version_id)).toEqual(["g_0"]);
+  });
+
+  it("cancelling the confirm dialog keeps all versions", async () => {
+    await db.versions.clear();
+    await db.versions.put({ ...current, version_id: "g_0", timestamp: 0 });
+    await db.versions.put(current);
+    const onUpdated = vi.fn();
+    render(
+      <PlayView current={current} onNewGame={() => {}} onUpdated={onUpdated} />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /go back to the version before/i,
+      }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /keep playing/i }));
+    expect(onUpdated).not.toHaveBeenCalled();
+    expect((await getVersions("g")).map((v) => v.version_id)).toEqual([
+      "g_1",
+      "g_0",
+    ]);
+  });
+
+  it("has no Redo button (reverting is one-way)", async () => {
+    await db.versions.clear();
+    await db.versions.put({ ...current, version_id: "g_0", timestamp: 0 });
+    await db.versions.put(current);
+    render(
+      <PlayView current={current} onNewGame={() => {}} onUpdated={() => {}} />,
+    );
+    await screen.findByRole("button", { name: /go back to the version before/i });
+    expect(screen.queryByRole("button", { name: /redo/i })).not.toBeInTheDocument();
   });
 
   it("fills the change box when a suggestion chip is tapped", () => {

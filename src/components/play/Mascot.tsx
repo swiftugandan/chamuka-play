@@ -33,21 +33,6 @@ export function Mascot({
         </linearGradient>
       </defs>
 
-      {/* antenna + star */}
-      <line
-        x1="75"
-        y1="34"
-        x2="75"
-        y2="14"
-        stroke="#7a3cf0"
-        strokeWidth="6"
-        strokeLinecap="round"
-      />
-      <path
-        d="M75 2 l5 9 10 1 -7 8 2 10 -10 -5 -10 5 2 -10 -7 -8 10 -1Z"
-        fill="#ffc233"
-      />
-
       {/* arms */}
       {isCheer ? (
         <>
@@ -104,10 +89,12 @@ export function Mascot({
         <path d="M58 86 q17 26 34 0 q-17 10 -34 0Z" fill="#3a1c6e" />
       ) : (
         <path
-          d="M60 84 q15 16 30 0"
+          d="M59 93 Q75 109 91 93"
+          fill="none"
           stroke="#3a1c6e"
           strokeWidth="6"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
       )}
     </svg>

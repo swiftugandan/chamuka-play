@@ -49,11 +49,7 @@ export function ChangeLog({
         />
       </button>
 
-      <div
-        className={`flex flex-col gap-3 px-3 pb-3 ${
-          open ? "max-h-[40vh] overflow-y-auto" : ""
-        }`}
-      >
+      <div className="flex flex-col gap-3 px-3 pb-3">
         {shown.map((v) => {
           const isCurrent = v.version_id === currentVersionId;
           return (

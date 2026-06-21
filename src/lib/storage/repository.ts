@@ -11,6 +11,19 @@ export async function deleteGame(gameId: string): Promise<void> {
   await db.versions.where("game_id").equals(gameId).delete();
 }
 
+/** Reverting to a version drops everything that came after it, so history stays
+ *  a single linear timeline (no abandoned "future" versions). */
+export async function deleteVersionsAfter(
+  gameId: string,
+  timestamp: number,
+): Promise<void> {
+  await db.versions
+    .where("game_id")
+    .equals(gameId)
+    .and((row) => row.timestamp > timestamp)
+    .delete();
+}
+
 export async function getVersions(gameId: string): Promise<GameVersion[]> {
   const rows = await db.versions.where("game_id").equals(gameId).toArray();
   return rows.sort((a, b) => b.timestamp - a.timestamp);

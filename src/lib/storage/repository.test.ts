@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./db";
-import { saveVersion, listGames, getVersions, deleteGame } from "./repository";
+import {
+  saveVersion,
+  listGames,
+  getVersions,
+  deleteGame,
+  deleteVersionsAfter,
+} from "./repository";
 
 function v(game_id: string, ts: number, title: string) {
   return {
@@ -50,6 +56,23 @@ describe("storage repository", () => {
     expect(version.edits).toEqual([
       { find: "jumpPower = 8", replace: "jumpPower = 14", because: "higher!" },
     ]);
+  });
+
+  it("drops versions newer than the one reverted to (keeping it and older)", async () => {
+    await saveVersion(v("g1", 100, "a"));
+    await saveVersion(v("g1", 200, "b"));
+    await saveVersion(v("g1", 300, "c"));
+    await deleteVersionsAfter("g1", 200);
+    expect((await getVersions("g1")).map((x) => x.timestamp)).toEqual([200, 100]);
+  });
+
+  it("only drops versions of the given game", async () => {
+    await saveVersion(v("g1", 100, "a"));
+    await saveVersion(v("g1", 200, "b"));
+    await saveVersion(v("g2", 300, "x"));
+    await deleteVersionsAfter("g1", 100);
+    expect((await getVersions("g1")).map((x) => x.timestamp)).toEqual([100]);
+    expect((await getVersions("g2")).map((x) => x.timestamp)).toEqual([300]);
   });
 
   it("deletes a game and all its versions", async () => {
