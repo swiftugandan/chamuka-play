@@ -12,6 +12,7 @@ import {
   type GameVersion,
 } from "@/lib/storage/repository";
 import type { Game } from "@/lib/ai/schema";
+import { newId } from "@/lib/id";
 
 export default function Home() {
   const [current, setCurrent] = useState<GameVersion | null>(null);
@@ -30,7 +31,7 @@ export default function Home() {
 
   async function handleCreated(game: Game, starterId: string, prompt: string) {
     const ts = Date.now();
-    const gameId = crypto.randomUUID();
+    const gameId = newId();
     const version: GameVersion = {
       version_id: `${gameId}_${ts}`,
       game_id: gameId,
