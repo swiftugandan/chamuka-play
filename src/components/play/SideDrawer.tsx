@@ -56,8 +56,15 @@ export function SideDrawer({
   const OpenChevron = isLeft ? ChevronLeft : ChevronRight;
 
   return (
+    // `overflow-hidden` clips the panel to the viewport: when closed it translates
+    // out through its own edge, and without clipping that off-screen copy leaks page
+    // width — which mobile browsers honour, widening the layout viewport so the
+    // `right-0`/`left-0` panel anchors off the visible screen. The peek tab always
+    // sits within the viewport horizontally, so nothing we want to see is clipped.
     <div
-      className={`fixed inset-0 z-40 ${passThrough ? "pointer-events-none" : ""}`}
+      className={`fixed inset-0 z-40 overflow-hidden ${
+        passThrough ? "pointer-events-none" : ""
+      }`}
     >
       {backdrop && (
         <div

@@ -59,6 +59,13 @@ describe("SideDrawer", () => {
     expect(dialog.className).not.toContain("-translate-x-full");
   });
 
+  it("clips the overlay so the off-screen panel can't leak page width", () => {
+    // The closed panel translates off-screen; without clipping it widens the
+    // layout viewport on mobile and pushes the open panel off the visible edge.
+    const { container } = renderDrawer({ open: false });
+    expect(container.firstElementChild?.className).toContain("overflow-hidden");
+  });
+
   it("renders a dimming backdrop when backdrop is enabled", () => {
     const onClose = vi.fn();
     const { container } = renderDrawer({ backdrop: true, onClose });
