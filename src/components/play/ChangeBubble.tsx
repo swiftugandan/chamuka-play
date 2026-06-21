@@ -135,21 +135,17 @@ export function ChangeBubble({
                   </p>
                   {edits.map((e, i) => (
                     <div key={i} className="mb-1.5 last:mb-0">
-                      <div className="flex gap-2 rounded bg-[#3a1530] px-2 py-0.5 text-[#ff9bbd]">
+                      <div className="flex w-max min-w-full gap-2 rounded bg-[#3a1530] px-2 py-0.5 text-[#ff9bbd]">
                         <span aria-hidden="true" className="select-none opacity-70">
                           −
                         </span>
-                        <code className="whitespace-pre-wrap break-all">
-                          {e.find}
-                        </code>
+                        <code className="whitespace-pre">{e.find}</code>
                       </div>
-                      <div className="flex gap-2 rounded bg-[#0f3a2c] px-2 py-0.5 text-[#7df0c4]">
+                      <div className="flex w-max min-w-full gap-2 rounded bg-[#0f3a2c] px-2 py-0.5 text-[#7df0c4]">
                         <span aria-hidden="true" className="select-none opacity-70">
                           +
                         </span>
-                        <code className="whitespace-pre-wrap break-all">
-                          {e.replace}
-                        </code>
+                        <code className="whitespace-pre">{e.replace}</code>
                       </div>
                     </div>
                   ))}
