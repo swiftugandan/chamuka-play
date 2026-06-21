@@ -4,6 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+## The bar: professional grade, everywhere
+
+Treat this as a shipped product, not a hobby project. **Every dimension — design,
+engineering, quality control, and product — is held to a professional standard.**
+When a quick hack and the correct solution diverge, take the correct one; if you
+genuinely can't, stop and flag the tradeoff rather than quietly shipping the hack.
+
+- **Engineering.** Structurally correct over "pragmatic." Build reusable, well-named
+  units (a shared hook/component, not a copy-paste); lift logic to where it belongs;
+  no dead affordances, no band-aids. Match the surrounding code's idioms and comment
+  density. Server-only AI in `"server-only"` modules; safety on both client and API.
+- **Design.** Cohesive and intentional — reuse the existing visual language (the
+  `card-toy`/`btn-toy` depth system, the color tokens, Mishi's voice) rather than
+  inventing one-off styles. Responsive and accessible (real labels, `aria-*`, 44px+
+  touch targets, keyboard paths). Nothing should read as a templated default.
+- **Product.** Every change is judged against the actual goal: help an ~8-year-old
+  learn to *prompt* (primary) and *read code* (secondary) through the make → play →
+  change → see-the-change loop. Copy is written for a child — warm, jargon-free,
+  short. Protect the refine loop; don't add surface area that dilutes it. Frame, don't
+  intimidate. When intent is unclear, ask rather than guess.
+- **Quality control.** Nothing is "done" until verified. New behavior ships with
+  tests (Vitest); the full gate must pass before claiming completion:
+  `npm run lint && npx tsc --noEmit && npm run test && npm run build`. Report results
+  honestly — if something is skipped or can't be verified here (e.g. real-browser
+  Web Speech, mic permissions), say so explicitly.
+
+If a request would compromise this bar, push back. "Make it work" never means "make
+it shoddy."
+
 ## What this is
 
 Chamuka Play is a kid-facing "vibe-coding" playground: a child picks a game kind,
