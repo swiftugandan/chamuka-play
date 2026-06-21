@@ -4,7 +4,12 @@ import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { GAME_SYSTEM_PROMPT } from "@/lib/games/systemPrompt";
 import { getStarter } from "@/lib/games/registry";
-import { GameSchema, type Game } from "./schema";
+import {
+  GameSchema,
+  SUGGESTIONS_DESCRIPTION,
+  type RefineResult,
+} from "./schema";
+import { applyEdits } from "./applyEdits";
 import { mockGenerate, mockRefine } from "./mockGame";
 
 function isMockEnabled(): boolean {
@@ -30,7 +35,7 @@ const STREAM_HEADERS = {
 // keeps the connection open during generation — required on Vercel Edge, which
 // would otherwise time out / buffer a long single response.
 function objectStreamResponse(result: {
-  partialOutputStream: AsyncIterable<Partial<Game>>;
+  partialOutputStream: AsyncIterable<unknown>;
 }): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -53,13 +58,14 @@ function objectStreamResponse(result: {
   return new Response(stream, { headers: STREAM_HEADERS });
 }
 
-// Mock path: emit the finished game as a single line (still a stream).
-function singleObjectResponse(game: Promise<Game>): Response {
+// Emit a finished object as a single line (still a stream). Used for the mock
+// generate path and for refinements (which resolve all at once, not as partials).
+function singleObjectResponse<T>(value: Promise<T>): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        const g = await game;
+        const g = await value;
         controller.enqueue(encoder.encode(JSON.stringify(g) + "\n"));
       } catch {
         controller.enqueue(
@@ -85,7 +91,9 @@ export function streamGenerateGame(input: {
   const result = streamText({
     model: resolveModel(),
     system: GAME_SYSTEM_PROMPT,
-    prompt: `Make a ${kind}. The player's idea: ${input.prompt}`,
+    prompt: `Make a ${kind}. The player's idea: ${input.prompt}
+
+Also return "suggestions": ${SUGGESTIONS_DESCRIPTION}`,
     output: Output.object({ schema: GameSchema }),
   });
   return objectStreamResponse(result);
@@ -97,35 +105,40 @@ export function streamGenerateGame(input: {
 // construction — so existing functionality is preserved — and is far faster.
 const EditsSchema = z.object({
   title: z.string().optional(),
+  summary: z
+    .string()
+    .describe(
+      "One short, friendly sentence a young child understands, saying what you changed. e.g. 'I made your cat jump higher!'",
+    ),
   edits: z
-    .array(z.object({ find: z.string(), replace: z.string() }))
+    .array(
+      z.object({
+        find: z.string(),
+        replace: z.string(),
+        because: z
+          .string()
+          .optional()
+          .describe(
+            "A short, kid-friendly reason for THIS edit, e.g. 'Bigger number = higher jump!'",
+          ),
+      }),
+    )
     .min(1)
     .max(20),
+  suggestions: z
+    .array(z.string())
+    .max(5)
+    .optional()
+    .default([])
+    .describe(SUGGESTIONS_DESCRIPTION),
 });
-
-function applyEdits(
-  code: string,
-  edits: { find: string; replace: string }[],
-): { code: string; applied: number } {
-  let out = code;
-  let applied = 0;
-  for (const edit of edits) {
-    if (!edit.find) continue;
-    const at = out.indexOf(edit.find);
-    if (at !== -1) {
-      out = out.slice(0, at) + edit.replace + out.slice(at + edit.find.length);
-      applied++;
-    }
-  }
-  return { code: out, applied };
-}
 
 export function refineGame(input: {
   code: string;
   instruction: string;
 }): Response {
   if (isMockEnabled()) return singleObjectResponse(mockRefine(input));
-  const game = (async (): Promise<Game> => {
+  const result = (async (): Promise<RefineResult> => {
     const { output } = await generateText({
       model: resolveModel(),
       system: GAME_SYSTEM_PROMPT,
@@ -142,6 +155,10 @@ Return a SMALL set of precise find/replace edits that make ONLY that change.
 For each edit:
 - "find": a snippet copied EXACTLY (character-for-character, including whitespace and indentation) from the game above — the smallest snippet that uniquely locates the spot to change.
 - "replace": what that snippet becomes.
+- "because": a short, kid-friendly reason for that one edit.
+
+Also return "summary": one short, friendly sentence a young child understands, describing what you changed overall.
+Also return "suggestions": ${SUGGESTIONS_DESCRIPTION}
 
 Rules:
 - Change only what the request needs. Every other byte of the game stays identical, so all existing features keep working.
@@ -150,8 +167,19 @@ Rules:
 - Include "title" ONLY if the change is about the game's name.`,
       output: Output.object({ schema: EditsSchema }),
     });
-    const { code } = applyEdits(input.code, output.edits);
-    return { title: output.title ?? "", code };
+    const { code, applied } = applyEdits(input.code, output.edits);
+    // No edit matched: report a no-op so the client can ask the child to rephrase
+    // instead of faking a change.
+    if (applied.length === 0) {
+      return { title: "", code: input.code, summary: "", edits: [], suggestions: [] };
+    }
+    return {
+      title: output.title ?? "",
+      code,
+      summary: output.summary,
+      edits: applied,
+      suggestions: output.suggestions,
+    };
   })();
-  return singleObjectResponse(game);
+  return singleObjectResponse(result);
 }

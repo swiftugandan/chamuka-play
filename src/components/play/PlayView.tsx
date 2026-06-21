@@ -6,9 +6,16 @@ import {
   getVersions,
   type GameVersion,
 } from "@/lib/storage/repository";
-import { readGameStream } from "@/lib/ai/streamClient";
-import { Building } from "./Building";
-import { WhatChanged } from "./WhatChanged";
+import { readRefineStream } from "@/lib/ai/streamClient";
+import { ChangeLog } from "./ChangeLog";
+import { RefineSuggestions } from "./RefineSuggestions";
+
+// Shown only if the model ever returns no ideas, so the chips are always useful.
+const FALLBACK_SUGGESTIONS = [
+  "make it more colorful",
+  "make it harder",
+  "add a surprise",
+];
 
 export function PlayView({
   current,
@@ -21,12 +28,10 @@ export function PlayView({
 }) {
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState(false);
-  const [changed, setChanged] = useState<{
-    oldCode: string;
-    newCode: string;
-  } | null>(null);
+  const [notice, setNotice] = useState("");
 
-  // All saved versions of this game (newest first) for undo/redo.
+  // All saved versions of this game (newest first) — the change log and undo/redo
+  // both read from this one list.
   const [versions, setVersions] = useState<GameVersion[]>([]);
   useEffect(() => {
     getVersions(current.game_id)
@@ -39,17 +44,25 @@ export function PlayView({
   const canRedo = idx > 0;
 
   async function changeIt() {
-    if (!instruction.trim()) return;
+    const text = instruction.trim();
+    if (!text || busy) return;
     setBusy(true);
+    setNotice("");
     try {
       const res = await fetch("/api/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: current.code, instruction }),
+        body: JSON.stringify({ code: current.code, instruction: text }),
       });
-      if (!res.ok) return;
-      const data = await readGameStream(res);
-      if ("error" in data) return;
+      if (!res.ok) {
+        setNotice("Oops — something went wrong. Try again!");
+        return;
+      }
+      const data = await readRefineStream(res);
+      if ("error" in data || data.edits.length === 0) {
+        setNotice("Hmm, I couldn't make that change — try saying it a different way!");
+        return;
+      }
       const ts = Date.now();
       const version: GameVersion = {
         ...current,
@@ -57,11 +70,16 @@ export function PlayView({
         title: data.title || current.title,
         code: data.code,
         timestamp: ts,
+        instruction: text,
+        summary: data.summary,
+        edits: data.edits,
+        suggestions: data.suggestions,
       };
       await saveVersion(version);
-      setChanged({ oldCode: current.code, newCode: version.code });
       onUpdated(version);
       setInstruction("");
+    } catch {
+      setNotice("Oops — something went wrong. Try again!");
     } finally {
       setBusy(false);
     }
@@ -124,27 +142,60 @@ export function PlayView({
           title={current.title}
           sandbox="allow-scripts"
           srcDoc={current.code}
-          className="console-screen h-full min-h-[55dvh] w-full rounded-2xl sm:rounded-3xl"
+          className="console-screen h-full min-h-[48dvh] w-full rounded-2xl sm:rounded-3xl"
         />
       </div>
 
+      <div className="pt-3">
+        <ChangeLog
+          versions={versions}
+          currentVersionId={current.version_id}
+          onTravel={onUpdated}
+          pending={busy ? instruction.trim() : null}
+        />
+      </div>
+
+      {!busy && (
+        <div className="pt-2.5">
+          <RefineSuggestions
+            suggestions={
+              current.suggestions && current.suggestions.length > 0
+                ? current.suggestions
+                : FALLBACK_SUGGESTIONS
+            }
+            onPick={(s) => {
+              setInstruction(s);
+              if (notice) setNotice("");
+            }}
+          />
+        </div>
+      )}
+
+      {notice && (
+        <p className="mt-2 px-1 text-center font-bold text-coral">{notice}</p>
+      )}
+
       <div
-        className="flex items-center gap-2.5 pt-3.5"
+        className="flex items-center gap-2.5 pt-3"
         style={{ paddingBottom: "max(0.875rem, env(safe-area-inset-bottom))" }}
       >
         <input
           value={instruction}
-          onChange={(e) => setInstruction(e.target.value)}
+          onChange={(e) => {
+            setInstruction(e.target.value);
+            if (notice) setNotice("");
+          }}
           onKeyDown={(e) => e.key === "Enter" && changeIt()}
           placeholder="Want to change something? Type it…"
           aria-label="Describe a change to your game"
-          className="btn-toy min-w-0 flex-1 rounded-full border-[3px] border-white bg-white px-4 py-3 font-bold text-ink outline-none placeholder:text-[#b9aad6]"
+          disabled={busy}
+          className="btn-toy min-w-0 flex-1 rounded-full border-[3px] border-white bg-white px-4 py-3 font-bold text-ink outline-none placeholder:text-[#b9aad6] disabled:opacity-60"
           style={{ "--toy-depth": "#eadbfb" } as React.CSSProperties}
         />
         <button
           onClick={changeIt}
           disabled={busy || !instruction.trim()}
-          className="btn-toy font-display inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-3 font-bold"
+          className="btn-toy font-display inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-3 font-bold disabled:opacity-60"
           style={
             {
               background: "linear-gradient(180deg,#37d9f0,var(--color-mint))",
@@ -156,15 +207,6 @@ export function PlayView({
           <Wand2 size={18} /> Change it!
         </button>
       </div>
-
-      {busy && <Building label="Changing your game…" />}
-      {changed && (
-        <WhatChanged
-          oldCode={changed.oldCode}
-          newCode={changed.newCode}
-          onClose={() => setChanged(null)}
-        />
-      )}
     </div>
   );
 }

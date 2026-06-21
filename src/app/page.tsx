@@ -39,6 +39,7 @@ export default function Home() {
       prompt,
       starterId,
       timestamp: ts,
+      suggestions: game.suggestions,
     };
     await saveVersion(version);
     refreshGames();

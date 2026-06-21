@@ -35,6 +35,23 @@ describe("storage repository", () => {
     expect(versions.map((x) => x.timestamp)).toEqual([200, 100]);
   });
 
+  it("round-trips a refinement's change story (instruction/summary/edits)", async () => {
+    await saveVersion({
+      ...v("g1", 300, "changed"),
+      instruction: "make the cat jump higher",
+      summary: "I made your cat jump higher!",
+      edits: [
+        { find: "jumpPower = 8", replace: "jumpPower = 14", because: "higher!" },
+      ],
+    });
+    const [version] = await getVersions("g1");
+    expect(version.instruction).toBe("make the cat jump higher");
+    expect(version.summary).toBe("I made your cat jump higher!");
+    expect(version.edits).toEqual([
+      { find: "jumpPower = 8", replace: "jumpPower = 14", because: "higher!" },
+    ]);
+  });
+
   it("deletes a game and all its versions", async () => {
     await saveVersion(v("g1", 100, "a"));
     await saveVersion(v("g1", 200, "b"));

@@ -1,5 +1,6 @@
 import { getStarter } from "@/lib/games/registry";
-import type { Game } from "./schema";
+import type { Game, RefineResult, AppliedEdit } from "./schema";
+import { applyEdits } from "./applyEdits";
 
 /**
  * Offline mock for local demos (enabled with MOCK_AI=1). Returns a real,
@@ -76,20 +77,63 @@ export async function mockGenerate(input: {
   const accent = ACCENTS[hash(input.prompt) % ACCENTS.length];
   const idea = clean(input.prompt) || "Surprise";
   const title = `${starter?.label ?? "Game"}: ${idea}`.slice(0, 48);
-  return { title, code: buildGame({ title, accent, speed: 2.2 }) };
+  return {
+    title,
+    code: buildGame({ title, accent, speed: 2.2 }),
+    suggestions: [
+      "make the stars fall faster",
+      "change the star colour",
+      "add a high score",
+    ],
+  };
 }
 
 export async function mockRefine(input: {
   code: string;
   instruction: string;
-}): Promise<Game> {
+}): Promise<RefineResult> {
   await sleep(800);
-  const accent = ACCENTS[(hash(input.instruction) + 3) % ACCENTS.length];
   const faster = /fast|speed|hard|quick/i.test(input.instruction);
-  const speed = faster ? 3.6 : 2.8;
-  const title = "Updated game ✨";
+
+  // Make real, small find/replace edits on the actual code so the change log —
+  // hero snippet included — shows true before/after values offline.
+  const edits: AppliedEdit[] = [];
+
+  const fall = input.code.match(/fall=([\d.]+)/);
+  if (fall) {
+    const next = faster ? "3.6" : "2.8";
+    edits.push({
+      find: `fall=${fall[1]}`,
+      replace: `fall=${next}`,
+      because: "This number is how fast the stars fall — bigger = faster! ⚡",
+    });
+  }
+
+  const color = input.code.match(/accent="(#[0-9a-fA-F]{6})"/);
+  if (color) {
+    const next = ACCENTS[(hash(input.instruction) + 3) % ACCENTS.length];
+    if (next.toLowerCase() !== color[1].toLowerCase()) {
+      edits.push({
+        find: `accent="${color[1]}"`,
+        replace: `accent="${next}"`,
+        because: "This is the colour of the stars. 🎨",
+      });
+    }
+  }
+
+  const { code, applied } = applyEdits(input.code, edits);
+  if (applied.length === 0) {
+    return { title: "", code: input.code, summary: "", edits: [], suggestions: [] };
+  }
   return {
-    title,
-    code: buildGame({ title, accent, speed, note: input.instruction }),
+    title: "Updated game ✨",
+    code,
+    summary: faster
+      ? "I made the stars fall faster! ⚡"
+      : "I gave your game a fresh new look! 🎨",
+    edits: applied,
+    suggestions: faster
+      ? ["make the stars bigger", "change the colours", "add a high score"]
+      : ["make it harder", "make the stars fall slower", "add a timer"],
   };
 }
