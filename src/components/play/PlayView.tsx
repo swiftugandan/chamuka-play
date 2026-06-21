@@ -8,6 +8,7 @@ import {
   type GameVersion,
 } from "@/lib/storage/repository";
 import { readRefineStream } from "@/lib/ai/streamClient";
+import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
 import { ChangeDrawer } from "./ChangeDrawer";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -91,6 +92,13 @@ export function PlayView({
   async function changeIt() {
     const text = instruction.trim();
     if (!text || busy) return;
+    // Guard the change request the same way new-game prompts are guarded. The
+    // client check is UX; the /api/refine route re-checks as the real guard.
+    const safety = isPromptSafeForKids(text);
+    if (!safety.safe) {
+      setNotice(safety.reason ?? "Let's keep it friendly and fun!");
+      return;
+    }
     setBusy(true);
     setNotice("");
     try {

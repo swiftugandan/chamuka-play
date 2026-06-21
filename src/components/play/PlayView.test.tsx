@@ -134,6 +134,23 @@ describe("PlayView refinement", () => {
     );
   });
 
+  it("blocks an unsafe change without calling the server", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const onUpdated = vi.fn();
+    render(
+      <PlayView current={current} onNewGame={() => {}} onUpdated={onUpdated} />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/describe a change/i), {
+      target: { value: "add a gun" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /change it/i }));
+
+    expect(await screen.findByText(/friendly and fun/i)).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onUpdated).not.toHaveBeenCalled();
+  });
+
   it("shows a friendly retry message and saves nothing on a no-op", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockRefineResponse({
