@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ChevronDown, CornerUpLeft } from "lucide-react";
 import { ChangeBubble } from "./ChangeBubble";
+import { useFirstTime } from "@/lib/onboarding/useFirstTime";
 import type { GameVersion } from "@/lib/storage/repository";
 
 /**
@@ -22,6 +23,16 @@ export function ChangeLog({
   pending?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  // First time there's history to explore, nudge that the log is a tappable
+  // timeline — not just a label. Retired once the child opens it.
+  const [hintFirstTime, markHintSeen] = useFirstTime("change-log");
+
+  function toggleOpen() {
+    // Side effects (and other components' state via the shared store) must run in
+    // the handler, never inside the setState updater — the updater runs in render.
+    if (!open) markHintSeen();
+    setOpen(!open);
+  }
 
   if (versions.length === 0) return null;
 
@@ -29,12 +40,14 @@ export function ChangeLog({
   const ordered = [...versions].reverse();
   const newestId = ordered[ordered.length - 1]?.version_id;
   const shown = open ? ordered : ordered.slice(-1);
+  // Only meaningful once at least one change exists to travel back to.
+  const showHint = !open && hintFirstTime && versions.length >= 2;
 
   return (
     <section className="rounded-toy-lg border-[3px] border-white bg-white/70 backdrop-blur-sm">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         aria-expanded={open}
         className="font-display flex w-full items-center gap-2 px-4 py-2.5 text-sm font-bold text-grape"
       >
@@ -48,6 +61,19 @@ export function ChangeLog({
           className={`ml-auto transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
+
+      {showHint && (
+        <div className="px-3 pb-1">
+          <button
+            type="button"
+            onClick={toggleOpen}
+            className="w-full rounded-xl bg-cloud px-3 py-2 text-left text-[13px] font-semibold text-grape transition-colors hover:bg-[#efe6fb]"
+          >
+            💡 Tap to see everything you changed — then tap any one to hop back
+            to it.
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 px-3 pb-3">
         {shown.map((v) => {

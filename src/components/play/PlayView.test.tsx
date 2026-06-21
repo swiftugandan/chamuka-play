@@ -151,7 +151,7 @@ describe("PlayView refinement", () => {
     expect(onUpdated).not.toHaveBeenCalled();
   });
 
-  it("shows a friendly retry message and saves nothing on a no-op", async () => {
+  it("nudges toward a clearer prompt and saves nothing on a no-op", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockRefineResponse({
         title: "",
@@ -170,7 +170,10 @@ describe("PlayView refinement", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /change it/i }));
 
-    expect(await screen.findByText(/different way/i)).toBeInTheDocument();
+    // The message should model a good prompt, not dead-end the child.
+    expect(
+      await screen.findByText(/one small change in plain words/i),
+    ).toBeInTheDocument();
     expect(onUpdated).not.toHaveBeenCalled();
   });
 });

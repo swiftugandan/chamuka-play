@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { StrictMode } from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { ChangeLog } from "./ChangeLog";
 import type { GameVersion } from "@/lib/storage/repository";
 
@@ -33,6 +34,11 @@ function refine(): GameVersion {
 const versions = [refine(), gen()];
 
 describe("ChangeLog", () => {
+  beforeEach(() => {
+    // The one-time "tap to explore your changes" hint persists in localStorage.
+    window.localStorage.clear();
+  });
+
   it("shows the newest turn when collapsed and the history when expanded", () => {
     render(
       <ChangeLog versions={versions} currentVersionId="g_2" onTravel={() => {}} />,
@@ -72,5 +78,56 @@ describe("ChangeLog", () => {
     );
     expect(screen.getByText("make it bigger")).toBeInTheDocument();
     expect(screen.getByText(/mishi is thinking/i)).toBeInTheDocument();
+  });
+
+  it("nudges that the log is a tappable timeline once there's history", () => {
+    render(
+      <ChangeLog versions={versions} currentVersionId="g_2" onTravel={() => {}} />,
+    );
+    expect(screen.getByText(/tap any one to hop back/i)).toBeInTheDocument();
+  });
+
+  it("does not nudge when there is only the original game", () => {
+    render(
+      <ChangeLog versions={[gen()]} currentVersionId="g_1" onTravel={() => {}} />,
+    );
+    expect(screen.queryByText(/tap any one to hop back/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the log without a setState-during-render warning", () => {
+    // StrictMode (as the dev server runs) surfaces "update a component while
+    // rendering a different component" if markSeen()'s notify fires in render.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <StrictMode>
+        <ChangeLog
+          versions={versions}
+          currentVersionId="g_2"
+          onTravel={() => {}}
+        />
+      </StrictMode>,
+    );
+    fireEvent.click(screen.getByText(/tap any one to hop back/i));
+    for (const call of spy.mock.calls) {
+      expect(String(call[0])).not.toMatch(/while rendering/i);
+    }
+    spy.mockRestore();
+  });
+
+  it("retires the nudge once the log has been opened", () => {
+    const { unmount } = render(
+      <ChangeLog versions={versions} currentVersionId="g_2" onTravel={() => {}} />,
+    );
+    // Tapping the hint opens the log...
+    fireEvent.click(screen.getByText(/tap any one to hop back/i));
+    expect(screen.getByText("make a maze")).toBeInTheDocument();
+
+    // ...and a fresh render (later session) no longer nudges.
+    unmount();
+    cleanup();
+    render(
+      <ChangeLog versions={versions} currentVersionId="g_2" onTravel={() => {}} />,
+    );
+    expect(screen.queryByText(/tap any one to hop back/i)).not.toBeInTheDocument();
   });
 });

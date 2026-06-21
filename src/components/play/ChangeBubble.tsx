@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { pickHero } from "@/lib/diff/heroSnippet";
+import { useFirstTime } from "@/lib/onboarding/useFirstTime";
 import type { AppliedEdit } from "@/lib/ai/schema";
 
 // Show the full snippet when both sides are short enough to keep context
@@ -24,6 +25,23 @@ export function ChangeBubble({
   isNewest?: boolean;
 }) {
   const [showCode, setShowCode] = useState(false);
+  // The very first time a child ever opens the real code, frame what they're
+  // looking at. `intro` holds it open for this reveal; the flag retires it forever.
+  const [firstCodeReveal, markCodeSeen] = useFirstTime("code-reveal");
+  const [intro, setIntro] = useState(false);
+
+  function toggleCode() {
+    // Side effects (and the shared store's notify) must run in the handler, not in
+    // the setState updater, which React executes during render.
+    const opening = !showCode;
+    if (opening && firstCodeReveal) {
+      setIntro(true);
+      markCodeSeen();
+    } else if (!opening) {
+      setIntro(false);
+    }
+    setShowCode(opening);
+  }
 
   const youSaid = instruction ?? prompt ?? "";
   const mishiSaid = summary || (isFirst ? "Here's your game! 🎮" : "All done! ✨");
@@ -89,7 +107,7 @@ export function ChangeBubble({
             <div className="mt-2">
               <button
                 type="button"
-                onClick={() => setShowCode((s) => !s)}
+                onClick={toggleCode}
                 aria-expanded={showCode}
                 className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[13px] font-bold text-grape hover:bg-cloud"
               >
@@ -97,12 +115,24 @@ export function ChangeBubble({
                 {showCode ? "Hide the code" : "See all the code that changed"}
               </button>
 
+              {showCode && intro && (
+                <div className="mt-2 rounded-xl bg-[#fff4d6] px-3 py-2 text-[13px] font-semibold text-[#8a6a00]">
+                  👀 This is the real code that runs your game! You don&apos;t
+                  have to read it — but every change you make lives in here.
+                </div>
+              )}
+
               {showCode && (
                 <div
                   role="region"
                   aria-label="all the code that changed"
                   className="mt-2 overflow-x-auto rounded-xl bg-[#1d1340] p-2.5 font-mono text-[12px] leading-relaxed"
                 >
+                  <p className="mb-2 font-sans text-[11px] font-semibold text-[#a99ad0]">
+                    <span className="text-[#ff9bbd]">Pink</span> lines are the
+                    old way · <span className="text-[#7df0c4]">green</span> lines
+                    are the new way
+                  </p>
                   {edits.map((e, i) => (
                     <div key={i} className="mb-1.5 last:mb-0">
                       <div className="flex gap-2 rounded bg-[#3a1530] px-2 py-0.5 text-[#ff9bbd]">

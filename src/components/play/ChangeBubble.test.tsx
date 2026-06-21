@@ -1,10 +1,16 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { StrictMode } from "react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { ChangeBubble } from "./ChangeBubble";
 
 const big = "y".repeat(120);
 
 describe("ChangeBubble", () => {
+  beforeEach(() => {
+    // The "first time you see code" framing persists in localStorage.
+    window.localStorage.clear();
+  });
+
   it("shows the child's words and the friendly summary", () => {
     render(
       <ChangeBubble
@@ -63,5 +69,55 @@ describe("ChangeBubble", () => {
     expect(
       screen.getByText(/a cat that jumps over stars/),
     ).toBeInTheDocument();
+  });
+
+  it("always shows a pink/green legend once the code is open", () => {
+    render(
+      <ChangeBubble
+        instruction="faster"
+        edits={[{ find: "speed = 5", replace: "speed = 9" }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /see all the code/i }));
+    expect(screen.getByText(/lines are the/i)).toBeInTheDocument();
+  });
+
+  it("opens the code without a setState-during-render warning", () => {
+    // StrictMode surfaces the antipattern of calling markSeen() (which notifies
+    // the shared store) inside a setState updater that runs during render.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <StrictMode>
+        <ChangeBubble
+          instruction="faster"
+          edits={[{ find: "speed = 5", replace: "speed = 9" }]}
+        />
+      </StrictMode>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /see all the code/i }));
+    for (const call of spy.mock.calls) {
+      expect(String(call[0])).not.toMatch(/while rendering/i);
+    }
+    spy.mockRestore();
+  });
+
+  it("frames the code the first time it is ever opened, then never again", () => {
+    const edits = [{ find: "speed = 5", replace: "speed = 9" }];
+    const { unmount } = render(
+      <ChangeBubble instruction="faster" edits={edits} />,
+    );
+
+    // First-ever open: the framing banner appears.
+    fireEvent.click(screen.getByRole("button", { name: /see all the code/i }));
+    expect(screen.getByText(/real code that runs your game/i)).toBeInTheDocument();
+
+    // A fresh bubble (e.g. next session) no longer frames it.
+    unmount();
+    cleanup();
+    render(<ChangeBubble instruction="faster" edits={edits} />);
+    fireEvent.click(screen.getByRole("button", { name: /see all the code/i }));
+    expect(
+      screen.queryByText(/real code that runs your game/i),
+    ).not.toBeInTheDocument();
   });
 });
