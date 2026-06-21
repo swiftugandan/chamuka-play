@@ -38,8 +38,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(SHELL, copy));
+          // Only refresh the cached shell from a good response, so an online
+          // error page can't become the offline fallback.
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(SHELL, copy));
+          }
           return res;
         })
         .catch(() => caches.match(SHELL).then((r) => r || caches.match(request))),
