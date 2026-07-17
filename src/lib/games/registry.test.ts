@@ -9,7 +9,7 @@ describe("game starters", () => {
       "catch",
       "maze",
       "quiz",
-      "drawing",
+      "anything",
       "memory",
       "math",
       "spelling",
@@ -22,14 +22,27 @@ describe("game starters", () => {
       3,
     );
   });
-  it("each starter has a label, description, and example prompts", () => {
+
+  it("each starter has a label, description, brief, and example prompts", () => {
     for (const s of GAME_STARTERS) {
       expect(s.label.length).toBeGreaterThan(0);
       expect(s.description.length).toBeGreaterThan(0);
+      expect(s.brief.length).toBeGreaterThan(0);
       expect(s.examples.length).toBeGreaterThan(0);
       expect(s.examples.every((e) => e.length > 0)).toBe(true);
     }
   });
+
+  it("offers a free-form starter in the fun category", () => {
+    const anything = getStarter("anything");
+    expect(anything?.category).toBe("fun");
+    expect(anything?.brief).toMatch(/any kind of game/i);
+  });
+
+  it("no longer offers the retired drawing starter", () => {
+    expect(getStarter("drawing")).toBeUndefined();
+  });
+
   it("getStarter finds by id and returns undefined otherwise", () => {
     expect(getStarter("maze")?.label).toBe("Maze Game");
     expect(getStarter("nope")).toBeUndefined();
