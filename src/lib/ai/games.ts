@@ -86,12 +86,13 @@ export function streamGenerateGame(input: {
   prompt: string;
 }): Response {
   if (isMockEnabled()) return singleObjectResponse(mockGenerate(input));
-  const starter = getStarter(input.starterId);
-  const kind = starter ? starter.label : "fun game";
+  // The starter carries its own brief, so a free-form starter can ask for any
+  // kind of game without this module knowing which starter is which.
+  const brief = getStarter(input.starterId)?.brief ?? "Make a fun game.";
   const result = streamText({
     model: resolveModel(),
     system: GAME_SYSTEM_PROMPT,
-    prompt: `Make a ${kind}. The player's idea: ${input.prompt}
+    prompt: `${brief} The player's idea: ${input.prompt}
 
 Also return "suggestions": ${SUGGESTIONS_DESCRIPTION}`,
     output: Output.object({ schema: GameSchema }),
@@ -164,6 +165,7 @@ Rules:
 - Change only what the request needs. Every other byte of the game stays identical, so all existing features keep working.
 - Prefer several small, unique edits over one giant edit. Never paste the whole file.
 - The edits must keep the game running with zero errors and fully playable.
+- Keep the game's structure and speed intact: when a named constant already controls what the child wants changed, edit that constant. Never add work or allocations inside the frame loop, and never attach an event listener a second time.
 - Include "title" ONLY if the change is about the game's name.`,
       output: Output.object({ schema: EditsSchema }),
     });

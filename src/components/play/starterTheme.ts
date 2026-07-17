@@ -1,6 +1,10 @@
 /**
  * UI theming for game starters (emoji + colour), kept in the UI layer so the
  * domain registry in `lib/games` stays presentation-free. Keyed by starter id.
+ *
+ * This map outlives the registry: `GAME_STARTERS` is the kinds you can make
+ * *now*, while this is how any starter id — past or present — renders, because
+ * saved games in IndexedDB keep the id they were made with.
  */
 export interface StarterTheme {
   emoji: string;
@@ -37,6 +41,14 @@ const THEMES: Record<string, StarterTheme> = {
     colorDark: "var(--color-coral-dark)",
     tint: "#ffe2db",
   },
+  anything: {
+    emoji: "✨",
+    color: "var(--color-grape)",
+    colorDark: "var(--color-grape-dark)",
+    tint: "#e7dbff",
+  },
+  // Retired from GAME_STARTERS, but kept here: this map renders any starter id
+  // ever saved, and games made with it still live in the child's IndexedDB.
   drawing: {
     emoji: "🎨",
     color: "var(--color-lilac)",
