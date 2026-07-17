@@ -165,6 +165,7 @@ Rules:
 - Change only what the request needs. Every other byte of the game stays identical, so all existing features keep working.
 - Prefer several small, unique edits over one giant edit. Never paste the whole file.
 - The edits must keep the game running with zero errors and fully playable.
+- Keep the game's structure and speed intact: when a named constant already controls what the child wants changed, edit that constant. Never add work or allocations inside the frame loop, and never attach an event listener a second time.
 - Include "title" ONLY if the change is about the game's name.`,
       output: Output.object({ schema: EditsSchema }),
     });
