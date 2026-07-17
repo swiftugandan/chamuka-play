@@ -86,12 +86,13 @@ export function streamGenerateGame(input: {
   prompt: string;
 }): Response {
   if (isMockEnabled()) return singleObjectResponse(mockGenerate(input));
-  const starter = getStarter(input.starterId);
-  const kind = starter ? starter.label : "fun game";
+  // The starter carries its own brief, so a free-form starter can ask for any
+  // kind of game without this module knowing which starter is which.
+  const brief = getStarter(input.starterId)?.brief ?? "Make a fun game.";
   const result = streamText({
     model: resolveModel(),
     system: GAME_SYSTEM_PROMPT,
-    prompt: `Make a ${kind}. The player's idea: ${input.prompt}
+    prompt: `${brief} The player's idea: ${input.prompt}
 
 Also return "suggestions": ${SUGGESTIONS_DESCRIPTION}`,
     output: Output.object({ schema: GameSchema }),
