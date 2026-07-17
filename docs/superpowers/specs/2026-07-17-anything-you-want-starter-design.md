@@ -35,8 +35,12 @@ and the model invents whatever mechanics fit.
 **The new starter replaces Drawing Toy** (user's choice, from three candidates).
 Drawing Toy is the only non-game in the set — a canvas toy with no score and no
 win/lose — so it already sits oddly against the system prompt's "show the score and a
-clear way to start/restart and to win or lose". A free-form starter still covers
-"make me a drawing thing" if the child asks for it.
+clear way to start/restart and to win or lose". Retiring it genuinely removes the
+scoreless-canvas-toy capability rather than preserving it via the free-form card: the
+free-form starter still funnels through `GAME_SYSTEM_PROMPT` unchanged, so a child
+asking it for "a drawing thing" gets a scored, win/lose game, not a canvas toy. That
+loss is accepted precisely because a scoreless toy is what fought the system prompt in
+the first place.
 
 **It sits in Drawing Toy's slot (position 5 of 6 in the fun row), styled exactly like
 its siblings.** No special visual treatment. This keeps the grid even at six cards and

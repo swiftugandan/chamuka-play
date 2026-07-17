@@ -33,6 +33,14 @@ describe("game starters", () => {
     }
   });
 
+  it("each retained starter's brief reproduces the original prompt sentence", () => {
+    // The prompt used to be built as `Make a ${label}.` — these briefs must stay
+    // byte-identical so existing game kinds generate exactly as they did before.
+    for (const s of GAME_STARTERS.filter((s) => s.id !== "anything")) {
+      expect(s.brief).toBe(`Make a ${s.label}.`);
+    }
+  });
+
   it("offers a free-form starter in the fun category", () => {
     const anything = getStarter("anything");
     expect(anything?.category).toBe("fun");
