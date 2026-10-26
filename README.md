@@ -88,6 +88,23 @@ bill Anthropic directly instead). Set `PLAYTEST_SNAPSHOT_ID` to enable browser
 playtests. The agent route runs on Fluid compute with a 300s budget per turn.
 There is **no database to provision** — it is local-first (IndexedDB in the browser).
 
+## Abuse protection
+
+`/api/agent` spends model tokens and sandbox time on every call, so it is guarded in layers:
+
+1. **BotID** (in code) — `src/instrumentation-client.ts` attaches a signed challenge to the
+   request and the route verifies it with `checkBotId()` (403 for bots). Turn it on once per
+   project: Vercel dashboard → Firewall → Rules → Bot Management → **BotID**. It always reports
+   a human in local dev.
+2. **Rate limit** (Vercel Firewall, not code) — Firewall → Configure → **Add rule**:
+   `Request Path equals /api/agent` and `Method equals POST` → action **Rate Limit**, fixed
+   window, **10 requests per 600 s**, keyed by **IP** (429 when exceeded; the studio shows
+   "Mishi needs a little rest!").
+3. **Kid-safety + request guard** (in code) — `guardTurn` rejects system messages, file parts
+   and unsafe earlier turns.
+
+Set a spend limit on the Anthropic key too: it is the backstop if any layer is misconfigured.
+
 ## Project layout
 
 ```

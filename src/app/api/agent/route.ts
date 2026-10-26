@@ -1,3 +1,4 @@
+import { checkBotId } from "botid/server";
 import { createUIMessageStream, createUIMessageStreamResponse, safeValidateUIMessages } from "ai";
 import { runGameTurn } from "@/lib/agent/agent";
 import { compactMessages } from "@/lib/agent/compact";
@@ -10,9 +11,17 @@ import { guardTurn } from "@/lib/agent/requestGuard";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const BOT_MESSAGE = "Mishi only plays with people! Try again from the Chamuka Play page.";
+
 const bad = (error: string, status = 400) => Response.json({ error }, { status });
 
 export async function POST(req: Request) {
+  // Every turn spends model tokens and sandbox time, so scripted traffic is
+  // turned away first. (Per-IP rate limiting is a Vercel Firewall rule — see
+  // README. Locally BotID always reports a human.)
+  const verification = await checkBotId();
+  if (verification.isBot) return bad(BOT_MESSAGE, 403);
+
   let body: unknown;
   try {
     body = await req.json();
