@@ -158,9 +158,16 @@ function Studio({
     const target = revertTarget;
     setRevertTarget(null);
     if (!target) return;
+    // If the chat has no entry for this version the two can't be kept in step:
+    // leave everything as it is rather than let the game and its story drift.
+    const mid = versionMessageId(target);
+    if (!agent.messages.some((m) => m.id === mid)) {
+      console.warn("revert skipped: no chat message for version", target.version_id);
+      return;
+    }
     await deleteVersionsAfter(game.gameId, target.timestamp);
     setVersions((list) => list.filter((v) => v.timestamp <= target.timestamp));
-    await agent.rewind(truncateAfter(agent.messages, versionMessageId(target)));
+    await agent.rewind(truncateAfter(agent.messages, mid));
     onUpdated(target);
   }
 

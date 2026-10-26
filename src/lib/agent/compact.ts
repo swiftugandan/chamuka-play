@@ -31,15 +31,55 @@ export function compactMessages(
     const lastUser = messages.findLastIndex((m) => m.role === "user");
     start = lastUser === -1 ? messages.length : lastUser;
   }
-  return messages.slice(start).map((m) =>
-    m.role === "assistant"
-      ? {
-          ...m,
-          // Reasoning is per-turn scratch work (and signed by the provider, so it
-          // can't be edited) — earlier turns' reasoning is dropped, not replayed.
-          parts: m.parts.filter((p) => p.type !== "reasoning").map(compactPart),
-        }
-      : m,
+  return shrinkAll(messages.slice(start));
+}
+
+/**
+ * The chat as it is kept in IndexedDB: the full conversation, but without the
+ * whole-file payloads (the games live in their versions) and without tool calls
+ * that never finished — a stopped turn must not poison later requests.
+ * `withoutResultOf` drops the change summary of a turn that ended in an error,
+ * so the chat never claims a change that was not saved.
+ */
+export function messagesForStorage(
+  messages: GameUIMessage[],
+  withoutResultOf?: string,
+): GameUIMessage[] {
+  return shrinkAll(
+    withoutResultOf
+      ? messages.map((m) =>
+          m.id === withoutResultOf
+            ? { ...m, parts: m.parts.filter((p) => p.type !== "data-result") }
+            : m,
+        )
+      : messages,
+  );
+}
+
+function shrinkAll(messages: GameUIMessage[]): GameUIMessage[] {
+  return messages
+    .map((m) =>
+      m.role === "assistant"
+        ? {
+            ...m,
+            // Reasoning is per-turn scratch work (and signed by the provider, so
+            // it can't be edited) — it is dropped, not replayed. A tool call
+            // still waiting for its result (stopped or failed turn) can never
+            // be answered, so it goes too.
+            parts: m.parts
+              .filter((p) => p.type !== "reasoning" && !isUnfinishedTool(p))
+              .map(compactPart),
+          }
+        : m,
+    )
+    .filter((m) => m.role !== "assistant" || m.parts.length > 0);
+}
+
+function isUnfinishedTool(part: GameUIMessagePart): boolean {
+  return (
+    part.type.startsWith("tool-") &&
+    "state" in part &&
+    (part.state === "input-streaming" || part.state === "input-available")
   );
 }
 

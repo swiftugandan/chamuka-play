@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compactMessages, messageText, OMITTED_HTML } from "./compact";
+import { compactMessages, messageText, messagesForStorage, OMITTED_HTML } from "./compact";
 import type { GameUIMessage } from "./protocol";
 
 const user = (id: string, text: string): GameUIMessage => ({
@@ -68,5 +68,53 @@ describe("compactMessages", () => {
 describe("messageText", () => {
   it("joins the text parts", () => {
     expect(messageText(user("u", "  make it red  "))).toBe("make it red");
+  });
+});
+
+const stuckWrite = {
+  type: "tool-writeGame",
+  toolCallId: "t1",
+  state: "input-available",
+  input: { title: "Stars", html: "<html>big</html>" },
+} as GameUIMessage["parts"][number];
+
+const doneResult = {
+  type: "data-result",
+  data: { kind: "changed", title: "Stars", summary: "ok", edits: [], suggestions: [] },
+} as GameUIMessage["parts"][number];
+
+describe("unfinished tool calls", () => {
+  it("are dropped from what is sent, so a stopped turn cannot break the next one", () => {
+    const msgs = [
+      user("u1", "a"),
+      assistant("a1", [{ type: "text", text: "building" }, stuckWrite]),
+      user("u2", "b"),
+    ];
+    const out = compactMessages(msgs);
+    expect(out[1].parts.map((p) => p.type)).toEqual(["text"]);
+  });
+
+  it("drop an assistant message that is left empty", () => {
+    const out = compactMessages([user("u1", "a"), assistant("a1", [stuckWrite]), user("u2", "b")]);
+    expect(out.map((m) => m.id)).toEqual(["u1", "u2"]);
+  });
+});
+
+describe("messagesForStorage", () => {
+  it("keeps the whole chat but strips game payloads", () => {
+    const write = { ...stuckWrite, state: "output-available", output: { ok: true } } as never;
+    const msgs = Array.from({ length: 30 }, (_, i) =>
+      i % 2 === 0 ? user(`u${i}`, "x") : assistant(`a${i}`, [write]),
+    );
+    const out = messagesForStorage(msgs);
+    expect(out).toHaveLength(30);
+    expect(JSON.stringify(out)).not.toContain("<html>big</html>");
+    expect(JSON.stringify(out)).toContain(OMITTED_HTML);
+  });
+
+  it("can take back the result of a turn that failed", () => {
+    const msgs = [user("u1", "a"), assistant("a1", [{ type: "text", text: "hi" }, doneResult])];
+    expect(messagesForStorage(msgs, "a1")[1].parts.map((p) => p.type)).toEqual(["text"]);
+    expect(messagesForStorage(msgs)[1].parts.map((p) => p.type)).toEqual(["text", "data-result"]);
   });
 });

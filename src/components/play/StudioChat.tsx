@@ -20,6 +20,7 @@ export function StudioChat({
   versions,
   currentVersionId,
   waiting,
+  busy = false,
   onTravel,
 }: {
   messages: GameUIMessage[];
@@ -27,6 +28,8 @@ export function StudioChat({
   currentVersionId: string | null;
   /** Sent, but Mishi hasn't started replying yet. */
   waiting: boolean;
+  /** Mishi is mid-turn: hold back screen-reader announcements until it is done. */
+  busy?: boolean;
   onTravel: (v: GameVersion) => void;
 }) {
   const versionByMessage = new Map(versions.map((v) => [versionMessageId(v), v]));
@@ -47,7 +50,7 @@ export function StudioChat({
   if (messages.length === 0 && !waiting) return null;
 
   return (
-    <div role="log" aria-label="Your chat with Mishi" className="flex flex-col gap-3">
+    <div role="log" aria-busy={busy} aria-label="Your chat with Mishi" className="flex flex-col gap-3">
       {messages.map((m) =>
         m.role === "user" ? (
           <ChildBubble key={m.id}>{messageText(m)}</ChildBubble>
@@ -78,7 +81,7 @@ export function StudioChat({
                           <button
                             type="button"
                             onClick={() => onTravel(v)}
-                            className="inline-flex min-h-[32px] items-center gap-1 rounded-full px-2.5 text-xs font-bold text-ink-soft hover:bg-cloud hover:text-grape"
+                            className="inline-flex min-h-[44px] items-center gap-1 rounded-full px-2.5 text-xs font-bold text-ink-soft hover:bg-cloud hover:text-grape"
                           >
                             <CornerUpLeft size={13} /> Go back to this one
                           </button>

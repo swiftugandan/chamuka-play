@@ -197,7 +197,7 @@ function BugRow({ label, problems }: { label: string; problems: string[] }) {
               type="button"
               onClick={() => setOpen(!open)}
               aria-expanded={open}
-              className="-ml-1.5 mt-0.5 inline-flex min-h-[32px] items-center gap-1 rounded-full px-1.5 text-[12px] font-bold text-ink-soft hover:bg-cloud hover:text-grape"
+              className="-ml-1.5 mt-0.5 inline-flex min-h-[44px] items-center gap-1 rounded-full px-1.5 text-[12px] font-bold text-ink-soft hover:bg-cloud hover:text-grape"
             >
               {open ? "Hide what went wrong" : "See what went wrong"}
               <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />

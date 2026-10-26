@@ -5,7 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { saveChat, saveVersion, type GameVersion } from "@/lib/storage/repository";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
 import { networkErrorNotice } from "@/lib/net/networkErrorNotice";
-import { compactMessages, messageText } from "./compact";
+import { compactMessages, messageText, messagesForStorage } from "./compact";
 import { resultOf } from "./conversation";
 import {
   AGENT_ERROR_MESSAGE,
@@ -46,6 +46,10 @@ export function useGameAgent({
   const [live, setLive] = useState<GameDataPart | null>(null);
   const liveRef = useRef<GameDataPart | null>(null);
   const [notice, setNotice] = useState("");
+  // True from "send" until the turn has been fully wrapped up (new version
+  // saved). useChat reports "ready" the moment the stream ends, but saving is
+  // still running — a message sent in that gap would edit the OLD game.
+  const [turnOpen, setTurnOpen] = useState(false);
 
   function showLive(next: GameDataPart | null) {
     liveRef.current = next;
@@ -66,46 +70,69 @@ export function useGameAgent({
       }
     },
     onFinish: async ({ message, messages, isAbort, isError }) => {
-      const built = liveRef.current;
-      const result = resultOf(message);
-      let saved = false;
-      if (result && built && !isAbort && !isError) {
-        const at = messages.findIndex((m) => m.id === message.id);
-        const asked = at > 0 ? messageText(messages[at - 1]) : "";
-        const base = current;
-        const ts = Date.now();
-        const version: GameVersion = {
-          version_id: `${gameId}_${ts}`,
-          game_id: gameId,
-          title: result.title || base?.title || "My game",
-          code: built.code,
-          prompt: base?.prompt ?? asked,
-          starterId,
-          timestamp: ts,
-          instruction: result.kind === "changed" ? asked : undefined,
-          summary: result.summary,
-          edits: result.edits,
-          suggestions: result.suggestions,
-          message_id: message.id,
-        };
-        await saveVersion(version);
-        saved = true;
-        onVersion(version);
+      try {
+        await finishTurn({ message, messages, isAbort, isError });
+      } finally {
+        setTurnOpen(false);
       }
-      // Cleared only after the new version is in place, so the preview never
-      // flashes back to the old game in between.
-      showLive(null);
-      // A conversation is only kept once its game exists (a first build that
-      // never finished leaves nothing to come back to).
-      if (saved || current) await saveChat(gameId, messages);
     },
     onError: (error) => {
       showLive(null);
       setNotice(errorNotice(error));
+      setTurnOpen(false);
     },
   });
 
-  const busy = chat.status === "submitted" || chat.status === "streaming";
+  async function finishTurn({
+    message,
+    messages,
+    isAbort,
+    isError,
+  }: {
+    message: GameUIMessage;
+    messages: GameUIMessage[];
+    isAbort: boolean;
+    isError: boolean;
+  }) {
+    const built = liveRef.current;
+    const result = resultOf(message);
+    let saved = false;
+    if (result && built && !isAbort && !isError) {
+      const at = messages.findIndex((m) => m.id === message.id);
+      const asked = at > 0 ? messageText(messages[at - 1]) : "";
+      const base = current;
+      const ts = Date.now();
+      const version: GameVersion = {
+        version_id: `${gameId}_${ts}`,
+        game_id: gameId,
+        title: result.title || base?.title || "My game",
+        code: built.code,
+        prompt: base?.prompt ?? asked,
+        starterId,
+        timestamp: ts,
+        instruction: result.kind === "changed" ? asked : undefined,
+        summary: result.summary,
+        edits: result.edits,
+        suggestions: result.suggestions,
+        message_id: message.id,
+      };
+      await saveVersion(version);
+      saved = true;
+      onVersion(version);
+    }
+    // Cleared only after the new version is in place, so the preview never
+    // flashes back to the old game in between.
+    showLive(null);
+    // A turn that ended badly may have announced a change that was never
+    // saved: take that summary back out of the conversation.
+    const failed = isAbort || isError;
+    const kept = messagesForStorage(messages, failed && !saved ? message.id : undefined);
+    // A conversation is only kept once its game exists (a first build that
+    // never finished leaves nothing to come back to).
+    if (saved || current) await saveChat(gameId, kept);
+  }
+
+  const busy = turnOpen || chat.status === "submitted" || chat.status === "streaming";
 
   /** Send the child's words to Mishi. Returns false if it wasn't sent. */
   function send(text: string): boolean {
@@ -125,6 +152,7 @@ export function useGameAgent({
       starterId,
       game: current ? { title: current.title, code: current.code } : null,
     };
+    setTurnOpen(true);
     void chat.sendMessage({ text: trimmed }, { body });
     return true;
   }
@@ -132,7 +160,7 @@ export function useGameAgent({
   /** Replace the conversation (after going back to an earlier version). */
   async function rewind(messages: GameUIMessage[]) {
     chat.setMessages(messages);
-    await saveChat(gameId, messages);
+    await saveChat(gameId, messagesForStorage(messages));
   }
 
   return {
@@ -154,7 +182,10 @@ type TurnBody = Omit<AgentRequestBody, "messages">;
 const agentTransport = new DefaultChatTransport<GameUIMessage>({
   api: "/api/agent",
   prepareSendMessagesRequest: ({ messages, body }) => ({
-    body: { ...(body as TurnBody), messages: compactMessages(messages) } satisfies AgentRequestBody,
+    body: {
+      ...(body as TurnBody),
+      messages: compactMessages(messages),
+    } satisfies AgentRequestBody,
   }),
 });
 

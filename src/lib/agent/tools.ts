@@ -116,7 +116,7 @@ export function createGameTools(
           value: [
             { type: "text", text },
             { type: "text", text: "Screenshot after playing:" },
-            { type: "media", data: shot, mediaType: "image/jpeg" },
+            { type: "image-data", data: shot, mediaType: "image/jpeg" },
           ],
         };
       },

@@ -1,8 +1,8 @@
 import { createUIMessageStream, createUIMessageStreamResponse, safeValidateUIMessages } from "ai";
 import { runGameTurn } from "@/lib/agent/agent";
-import { compactMessages, messageText } from "@/lib/agent/compact";
+import { compactMessages } from "@/lib/agent/compact";
 import { AGENT_ERROR_MESSAGE, agentRequestSchema, type GameUIMessage } from "@/lib/agent/protocol";
-import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
+import { guardTurn } from "@/lib/agent/requestGuard";
 
 // Node, not edge: the playtester drives a Vercel Sandbox and compiles code with
 // node:vm. A turn (build → test → fix → test) can take a few minutes; Fluid
@@ -27,13 +27,11 @@ export async function POST(req: Request) {
   });
   if (!validated.success) return bad("Bad request");
 
+  // The client checks too (for instant feedback); this is the real guard, and
+  // it covers the whole history — not just the newest message.
+  const guard = guardTurn(validated.data);
+  if (!guard.ok) return bad(guard.reason);
   const messages = compactMessages(validated.data);
-  const latest = messages.at(-1);
-  if (!latest || latest.role !== "user") return bad("Bad request");
-
-  // The client checks too (for instant feedback); this is the real guard.
-  const safety = isPromptSafeForKids(messageText(latest));
-  if (!safety.safe) return bad(safety.reason ?? "Let's keep it friendly and fun!");
 
   const stream = createUIMessageStream<GameUIMessage>({
     execute: ({ writer }) =>

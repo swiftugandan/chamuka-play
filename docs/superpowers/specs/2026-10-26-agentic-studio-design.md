@@ -74,7 +74,7 @@ Key decisions:
 
 `MAX_AGENT_STEPS` 18 · `MAX_PLAYTESTS_PER_TURN` 4 · `MAX_EDITS_PER_CALL` 20 ·
 `MAX_GAME_BYTES` 200 KB · route `maxDuration` 300 s · sandbox VM timeout 5 min ·
-history window 24 messages.
+history window 24 messages · turn deadline 240 s (then the agent lands the plane).
 
 ## Not in this change
 

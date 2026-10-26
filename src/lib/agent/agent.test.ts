@@ -96,4 +96,30 @@ describe("runGameTurn (offline model, end to end)", () => {
     expect(live).toEqual([]);
     expect(message.parts.some((p) => p.type === "text" && /another way/.test(p.text))).toBe(true);
   });
+
+  it("survives a chat that contains a stopped turn", async () => {
+    const stuck = {
+      id: "a0",
+      role: "assistant",
+      parts: [
+        { type: "tool-writeGame", toolCallId: "t0", state: "input-available", input: { title: "x", html: "<p/>" } },
+      ],
+    } as GameUIMessage;
+    const stream = createUIMessageStream<GameUIMessage>({
+      execute: ({ writer }) =>
+        runGameTurn({
+          messages: [
+            { id: "u0", role: "user", parts: [{ type: "text", text: "make a game" }] },
+            stuck,
+            { id: "u1", role: "user", parts: [{ type: "text", text: "try again" }] },
+          ],
+          starterId: "clicker",
+          game: null,
+          writer,
+        }),
+    });
+    let message: GameUIMessage | undefined;
+    for await (const m of readUIMessageStream<GameUIMessage>({ stream })) message = m;
+    expect(message!.parts.some((p) => p.type === "data-result")).toBe(true);
+  });
 });

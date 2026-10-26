@@ -20,6 +20,10 @@ import { GameWorkspace } from "./workspace";
 import { createPlaytester, type Playtester } from "./playtest";
 import { createMockAgentModel } from "./mockModel";
 
+/** Leaves ~60 s of the route's 300 s for the final save, a playtest in flight,
+ *  and teardown. */
+const TURN_BUDGET_MS = 240_000;
+
 export interface GameTurnInput {
   messages: GameUIMessage[];
   starterId: string;
@@ -31,12 +35,14 @@ export interface GameTurnInput {
 /**
  * Run one agent turn: the child's latest message → plan/build/test/fix → a saved
  * version. Streams everything (text, tool steps, live game, result) through
- * `writer`, and always closes with exactly one `finish` chunk.
+ * `writer`, and closes with exactly one `finish` chunk (if the turn throws, the
+ * stream's error chunk ends it instead).
  */
 export async function runGameTurn(input: GameTurnInput): Promise<void> {
   const workspace = new GameWorkspace(input.game);
   const playtester: Playtester = createPlaytester();
   let resultSent = false;
+  const deadline = Date.now() + TURN_BUDGET_MS;
 
   const tools = createGameTools(workspace, playtester, {
     onGame: (game) => input.writer.write({ type: "data-game", data: game, transient: true }),
@@ -66,9 +72,12 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
     providerOptions: resolved ? agentProviderOptions(resolved.provider) : undefined,
     maxOutputTokens: 64_000,
     stopWhen: [hasToolCall("finish"), stepCountIs(MAX_AGENT_STEPS)],
-    // On the last step, land the plane: save what was built, or just talk.
+    // On the last step — or when the clock says the function is nearly out of
+    // time — land the plane: save what was built, or just talk. (Some Claude
+    // models treat a forced tool choice as "auto"; the fallback result below
+    // covers that.)
     prepareStep: ({ stepNumber }) =>
-      stepNumber === MAX_AGENT_STEPS - 1
+      stepNumber === MAX_AGENT_STEPS - 1 || Date.now() > deadline
         ? workspace.changed
           ? { toolChoice: { type: "tool", toolName: "finish" } }
           : { toolChoice: "none" }
@@ -77,7 +86,11 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
 
   try {
     const result = await agent.stream({
-      messages: await convertToModelMessages(input.messages, { tools }),
+      messages: await convertToModelMessages(input.messages, {
+        tools,
+        // A stopped turn can leave a tool call with no result; never fail on it.
+        ignoreIncompleteToolCalls: true,
+      }),
       abortSignal: input.abortSignal,
     });
     // Drain the agent's stream through the writer ourselves (rather than

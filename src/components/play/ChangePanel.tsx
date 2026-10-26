@@ -62,6 +62,7 @@ export function ChangePanel({
           versions={versions}
           currentVersionId={currentVersionId}
           waiting={waiting}
+          busy={busy}
           onTravel={onTravel}
         />
         {!busy && hasGame && (
