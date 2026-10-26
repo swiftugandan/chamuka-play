@@ -16,6 +16,7 @@ import {
 
 export const AGENT_NOTICES = {
   unsafe: "Let's keep it friendly and fun!",
+  slowDown: "Mishi needs a little rest! Try again in a minute.",
 } as const;
 
 export interface UseGameAgentOptions {
@@ -192,6 +193,8 @@ const agentTransport = new DefaultChatTransport<GameUIMessage>({
 /** The transport surfaces a non-2xx body as the error message. */
 function errorNotice(error: Error): string {
   if (error.message === AGENT_ERROR_MESSAGE) return AGENT_ERROR_MESSAGE;
+  // The Vercel Firewall answers a too-fast visitor with a plain 429 page.
+  if (/too many requests|rate.?limit|\b429\b/i.test(error.message)) return AGENT_NOTICES.slowDown;
   try {
     const parsed = JSON.parse(error.message) as { error?: unknown };
     if (typeof parsed.error === "string" && parsed.error !== "Bad request") return parsed.error;

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 
 const nextConfig: NextConfig = {
   // Pin the workspace root to this app so Turbopack doesn't infer a parent
@@ -36,4 +37,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// withBotId proxies BotID's challenge script through this origin so ad-blockers
+// and extensions don't break the check for real visitors.
+export default withBotId(nextConfig);
