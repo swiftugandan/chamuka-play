@@ -36,8 +36,28 @@ describe("applyEdits", () => {
     expect(r.applied).toEqual([]);
   });
 
-  it("replaces only the first occurrence", () => {
+  it("rejects a snippet that matches more than once instead of guessing", () => {
     const r = applyEdits("a a a", [{ find: "a", replace: "b" }]);
-    expect(r.code).toBe("b a a");
+    expect(r.code).toBe("a a a");
+    expect(r.applied).toEqual([]);
+    expect(r.failed).toEqual([
+      { edit: { find: "a", replace: "b" }, reason: "ambiguous", matches: 3 },
+    ]);
+  });
+
+  it("reports not-found and empty edits as failures with a reason", () => {
+    const r = applyEdits("x = 1", [
+      { find: "", replace: "y" },
+      { find: "z = 2", replace: "z = 3" },
+    ]);
+    expect(r.failed.map((f) => f.reason)).toEqual(["empty", "not-found"]);
+  });
+
+  it("sees earlier edits when matching later ones", () => {
+    const r = applyEdits("speed = 5", [
+      { find: "speed = 5", replace: "speed = 5; jump = 2" },
+      { find: "jump = 2", replace: "jump = 4" },
+    ]);
+    expect(r.code).toBe("speed = 5; jump = 4");
   });
 });

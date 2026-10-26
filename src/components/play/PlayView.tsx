@@ -1,29 +1,33 @@
 "use client";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Undo2 } from "lucide-react";
 import {
-  saveVersion,
-  getVersions,
   deleteVersionsAfter,
+  getChat,
+  getVersions,
   type GameVersion,
 } from "@/lib/storage/repository";
-import { readRefineStream } from "@/lib/ai/streamClient";
-import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
-import { networkErrorNotice } from "@/lib/net/networkErrorNotice";
+import { useGameAgent } from "@/lib/agent/useGameAgent";
+import {
+  messagesFromVersions,
+  resultOf,
+  truncateAfter,
+  versionMessageId,
+} from "@/lib/agent/conversation";
+import type { GameUIMessage } from "@/lib/agent/protocol";
+import { getStarter } from "@/lib/games/registry";
+import { BuildStage } from "./BuildStage";
 import { ChangeDrawer } from "./ChangeDrawer";
 import { ConfirmDialog } from "./ConfirmDialog";
 
-// Kid-facing notices for the change loop. The "couldn't apply" case is a teaching
-// moment — it models the shape of a good prompt (one small change, plain words)
-// rather than the dead-end "say it a different way", since prompting better is the
-// very skill the child is here to practise.
-const NOTICES = {
-  unsafe: "Let's keep it friendly and fun!",
-  failed:
-    "Hmm, that one didn't work. Try one small change in plain words — like " +
-    "“make the ball red” or “make it go faster”.",
-  error: "Oops — something went wrong. Try again!",
-} as const;
+/** A game open in the studio. `version` is null while its first build runs. */
+export interface OpenGame {
+  gameId: string;
+  starterId: string;
+  version: GameVersion | null;
+  /** The child's idea for a brand-new game, sent to Mishi on open. */
+  firstPrompt?: string;
+}
 
 // True below the `lg` breakpoint, where the change drawer would cover the game.
 // SSR (and jsdom, which lacks matchMedia) reports false → the panel defaults open.
@@ -43,20 +47,95 @@ function useBelowLg() {
   );
 }
 
+/**
+ * The studio for one game: the game on a handheld "console", and Mishi's chat
+ * beside it. Loads the game's saved versions and conversation, then hands off
+ * to <Studio>, which owns the live session.
+ */
 export function PlayView({
-  current,
+  game,
   onNewGame,
   onUpdated,
 }: {
-  current: GameVersion;
+  game: OpenGame;
   onNewGame: () => void;
   onUpdated: (v: GameVersion) => void;
 }) {
+  const [loaded, setLoaded] = useState<{
+    gameId: string;
+    versions: GameVersion[];
+    messages: GameUIMessage[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const versions = await getVersions(game.gameId).catch(() => []);
+      // Games made before the agent have versions but no chat: rebuild one.
+      const messages =
+        (await getChat(game.gameId).catch(() => null)) ?? messagesFromVersions(versions);
+      if (!cancelled) setLoaded({ gameId: game.gameId, versions, messages });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [game.gameId]);
+
+  if (!loaded || loaded.gameId !== game.gameId) {
+    return <div className="h-dvh w-full" aria-busy="true" />;
+  }
+  return (
+    <Studio
+      key={game.gameId}
+      game={game}
+      initialVersions={loaded.versions}
+      initialMessages={loaded.messages}
+      onNewGame={onNewGame}
+      onUpdated={onUpdated}
+    />
+  );
+}
+
+function Studio({
+  game,
+  initialVersions,
+  initialMessages,
+  onNewGame,
+  onUpdated,
+}: {
+  game: OpenGame;
+  initialVersions: GameVersion[];
+  initialMessages: GameUIMessage[];
+  onNewGame: () => void;
+  onUpdated: (v: GameVersion) => void;
+}) {
+  const current = game.version;
   const [instruction, setInstruction] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  // All saved versions of this game, newest first — the undo timeline.
+  const [versions, setVersions] = useState(initialVersions);
   // The version a pending revert would jump to (drives the confirm dialog).
   const [revertTarget, setRevertTarget] = useState<GameVersion | null>(null);
+
+  const agent = useGameAgent({
+    gameId: game.gameId,
+    starterId: game.starterId,
+    initialMessages,
+    current,
+    onVersion: (v) => {
+      setVersions((list) => [v, ...list]);
+      onUpdated(v);
+    },
+  });
+
+  // A brand-new game: send the child's idea as soon as the studio opens. The ref
+  // guards against React's dev double-mount sending it twice.
+  const sentFirst = useRef(false);
+  useEffect(() => {
+    if (sentFirst.current || !game.firstPrompt) return;
+    if (current || initialMessages.length > 0) return;
+    sentFirst.current = true;
+    agent.send(game.firstPrompt);
+  }, [agent, current, game.firstPrompt, initialMessages.length]);
 
   // The change drawer defaults open beside the game on large screens and collapsed
   // on small ones (where it would otherwise cover the game). Once the child taps
@@ -64,32 +143,24 @@ export function PlayView({
   const belowLg = useBelowLg();
   const [panelOverride, setPanelOverride] = useState<boolean | null>(null);
   const panelOpen = panelOverride ?? !belowLg;
-  const togglePanel = () => setPanelOverride(!panelOpen);
 
-  // All saved versions of this game (newest first) — the change log and undo
-  // both read from this one list.
-  const [versions, setVersions] = useState<GameVersion[]>([]);
-  useEffect(() => {
-    getVersions(current.game_id)
-      .then(setVersions)
-      .catch(() => setVersions([]));
-  }, [current.game_id, current.version_id]);
+  const idx = current ? versions.findIndex((v) => v.version_id === current.version_id) : -1;
+  const canUndo = !agent.busy && idx >= 0 && idx < versions.length - 1;
 
-  const idx = versions.findIndex((v) => v.version_id === current.version_id);
-  const canUndo = idx >= 0 && idx < versions.length - 1;
-
-  // Reverting drops everything after the target, so confirm first (it can't be
-  // undone). The dialog opens; confirmRevert does the actual work.
   function requestRevert(target: GameVersion) {
-    if (target.version_id === current.version_id) return;
+    if (agent.busy || target.version_id === current?.version_id) return;
     setRevertTarget(target);
   }
 
+  // Going back drops everything after the target — versions AND the chat that
+  // made them — so the game and the conversation tell the same story.
   async function confirmRevert() {
     const target = revertTarget;
     setRevertTarget(null);
     if (!target) return;
-    await deleteVersionsAfter(current.game_id, target.timestamp);
+    await deleteVersionsAfter(game.gameId, target.timestamp);
+    setVersions((list) => list.filter((v) => v.timestamp <= target.timestamp));
+    await agent.rewind(truncateAfter(agent.messages, versionMessageId(target)));
     onUpdated(target);
   }
 
@@ -99,57 +170,19 @@ export function PlayView({
 
   function editInstruction(value: string) {
     setInstruction(value);
-    if (notice) setNotice("");
+    if (agent.notice) agent.clearNotice();
   }
 
-  async function changeIt() {
-    const text = instruction.trim();
-    if (!text || busy) return;
-    // Guard the change request the same way new-game prompts are guarded. The
-    // client check is UX; the /api/refine route re-checks as the real guard.
-    const safety = isPromptSafeForKids(text);
-    if (!safety.safe) {
-      setNotice(safety.reason ?? NOTICES.unsafe);
-      return;
-    }
-    setBusy(true);
-    setNotice("");
-    try {
-      const res = await fetch("/api/refine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: current.code, instruction: text }),
-      });
-      if (!res.ok) {
-        setNotice(NOTICES.error);
-        return;
-      }
-      const data = await readRefineStream(res);
-      if ("error" in data || data.edits.length === 0) {
-        setNotice(NOTICES.failed);
-        return;
-      }
-      const ts = Date.now();
-      const version: GameVersion = {
-        ...current,
-        version_id: `${current.game_id}_${ts}`,
-        title: data.title || current.title,
-        code: data.code,
-        timestamp: ts,
-        instruction: text,
-        summary: data.summary,
-        edits: data.edits,
-        suggestions: data.suggestions,
-      };
-      await saveVersion(version);
-      onUpdated(version);
-      setInstruction("");
-    } catch {
-      setNotice(networkErrorNotice(navigator.onLine));
-    } finally {
-      setBusy(false);
-    }
+  function submit() {
+    if (agent.send(instruction)) setInstruction("");
   }
+
+  // What's on the console: the game mid-build if Mishi has one, else the saved one.
+  const shown = agent.live ?? current;
+  const lastAssistant = agent.messages.findLast((m) => m.role === "assistant");
+  const title =
+    agent.live?.title || current?.title || getStarter(game.starterId)?.label || "New game";
+  const suggestions = latestSuggestions(agent.messages) ?? current?.suggestions;
 
   return (
     <div className="h-dvh w-full overflow-hidden">
@@ -181,7 +214,7 @@ export function PlayView({
             }
           >
             <span aria-hidden="true">🌟</span>
-            <span className="truncate">{current.title}</span>
+            <span className="truncate">{title}</span>
           </span>
 
           {canUndo && (
@@ -199,28 +232,56 @@ export function PlayView({
           )}
         </div>
 
-        <div className="console-shell rounded-toy-xl flex min-h-0 flex-1 p-2.5 sm:p-3">
-          <iframe
-            title={current.title}
-            sandbox="allow-scripts"
-            srcDoc={current.code}
-            className="console-screen min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl"
-          />
+        <div className="console-shell rounded-toy-xl relative flex min-h-0 flex-1 p-2.5 sm:p-3">
+          {shown ? (
+            <iframe
+              title={title}
+              sandbox="allow-scripts"
+              srcDoc={shown.code}
+              className="console-screen min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl"
+            />
+          ) : (
+            <div className="console-screen flex min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl">
+              <BuildStage
+                label={
+                  agent.busy
+                    ? activityLabel(lastAssistant)
+                    : "Hmm, that didn't work. Tell Mishi your idea again!"
+                }
+                code={agent.busy ? streamingCode(lastAssistant) : ""}
+                failed={!agent.busy}
+              />
+            </div>
+          )}
+          {shown && agent.busy && (
+            <p
+              role="status"
+              className="font-display pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-3.5 py-1.5 text-sm font-bold text-grape shadow-lg sm:bottom-7"
+            >
+              <span className="anim-spin mr-1.5 inline-block" aria-hidden="true">
+                ⚙️
+              </span>
+              {activityLabel(lastAssistant)}
+            </p>
+          )}
         </div>
       </div>
 
       <ChangeDrawer
         open={panelOpen}
-        onToggle={togglePanel}
+        onToggle={() => setPanelOverride(!panelOpen)}
+        messages={agent.messages}
         versions={versions}
-        currentVersionId={current.version_id}
+        currentVersionId={current?.version_id ?? null}
         onTravel={requestRevert}
-        busy={busy}
+        busy={agent.busy}
+        waiting={agent.status === "submitted"}
         instruction={instruction}
         onInstructionChange={editInstruction}
-        onSubmit={changeIt}
-        notice={notice}
-        suggestions={current.suggestions}
+        onSubmit={submit}
+        onStop={agent.stop}
+        notice={agent.notice}
+        suggestions={suggestions}
         onPickSuggestion={editInstruction}
       />
 
@@ -240,4 +301,40 @@ export function PlayView({
       )}
     </div>
   );
+}
+
+/** The newest "try this next" ideas Mishi offered. */
+function latestSuggestions(messages: GameUIMessage[]): string[] | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const result = resultOf(messages[i]);
+    if (result && result.suggestions.length > 0) return result.suggestions;
+  }
+  return undefined;
+}
+
+/** What Mishi is doing right now, from its latest step. */
+export function activityLabel(message: GameUIMessage | undefined): string {
+  const step = message?.parts.findLast((p) => p.type.startsWith("tool-"));
+  switch (step?.type) {
+    case "tool-makePlan":
+      return "Mishi is planning your game…";
+    case "tool-writeGame":
+      return "Mishi is building your game…";
+    case "tool-editGame":
+    case "tool-readGame":
+      return "Mishi is changing the code…";
+    case "tool-playtest":
+      return "Mishi is testing your game…";
+    case "tool-finish":
+      return "Almost done…";
+    default:
+      return "Mishi is thinking…";
+  }
+}
+
+/** The code of a game being written right now, as far as it has streamed. */
+function streamingCode(message: GameUIMessage | undefined): string {
+  const write = message?.parts.findLast((p) => p.type === "tool-writeGame");
+  if (!write || write.type !== "tool-writeGame") return "";
+  return write.input?.html ?? "";
 }

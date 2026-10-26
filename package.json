@@ -8,13 +8,17 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "playtest:snapshot": "tsx scripts/create-playtest-snapshot.mts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.83",
-    "@ai-sdk/react": "^3.0.210",
+    "@ai-sdk/anthropic": "^3.0.135",
+    "@ai-sdk/google": "^3.0.138",
+    "@ai-sdk/provider": "^3.0.19",
+    "@ai-sdk/react": "^3.0.318",
     "@base-ui/react": "^1.6.0",
-    "ai": "^6.0.208",
+    "@vercel/sandbox": "^3.9.0",
+    "ai": "^6.0.315",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4.4.4",
@@ -42,8 +46,10 @@
     "eslint-config-next": "16.2.9",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^25.0.1",
+    "playwright": "^1.64.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^2.1.9"
   }

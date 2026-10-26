@@ -1,6 +1,5 @@
 "use client";
 import { Wand2 } from "lucide-react";
-import type { GameVersion } from "@/lib/storage/repository";
 import { ChangePanel } from "./ChangePanel";
 import { SideDrawer } from "./SideDrawer";
 
@@ -12,30 +11,12 @@ import { SideDrawer } from "./SideDrawer";
 export function ChangeDrawer({
   open,
   onToggle,
-  versions,
-  currentVersionId,
-  onTravel,
-  busy,
-  instruction,
-  onInstructionChange,
-  onSubmit,
-  notice,
-  suggestions,
-  onPickSuggestion,
+  ...panel
 }: {
   open: boolean;
   onToggle: () => void;
-  versions: GameVersion[];
-  currentVersionId: string;
-  onTravel: (v: GameVersion) => void;
-  busy: boolean;
-  instruction: string;
-  onInstructionChange: (value: string) => void;
-  onSubmit: () => void;
-  notice: string;
-  suggestions?: string[];
-  onPickSuggestion: (suggestion: string) => void;
-}) {
+} & React.ComponentProps<typeof ChangePanel>) {
+  const versionCount = panel.versions.length;
   return (
     <SideDrawer
       open={open}
@@ -47,27 +28,17 @@ export function ChangeDrawer({
       tabLabel="changes"
       backdrop={false}
       tabClassName="bg-gradient-to-b from-[#37d9f0] to-mint text-[#04413a]"
+      wiggleWhenClosed={panel.busy}
       tabBadge={
-        versions.length > 1 ? (
+        versionCount > 1 ? (
           <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-white px-1 text-[11px] font-extrabold text-[#0a7d5e]">
-            {versions.length}
+            {versionCount}
           </span>
         ) : undefined
       }
       tabIcon={<Wand2 size={24} />}
     >
-      <ChangePanel
-        versions={versions}
-        currentVersionId={currentVersionId}
-        onTravel={onTravel}
-        busy={busy}
-        instruction={instruction}
-        onInstructionChange={onInstructionChange}
-        onSubmit={onSubmit}
-        notice={notice}
-        suggestions={suggestions}
-        onPickSuggestion={onPickSuggestion}
-      />
+      <ChangePanel {...panel} />
     </SideDrawer>
   );
 }

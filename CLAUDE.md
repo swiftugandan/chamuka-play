@@ -37,9 +37,11 @@ it shoddy."
 
 Chamuka Play is a kid-facing "vibe-coding" playground: a child picks a game kind,
 describes an idea in plain language, and the app generates a single-file HTML game
-they can play, tweak in plain words, and keep. It is **local-first** — there is no
-backend database; games persist in the browser via IndexedDB. The only server work
-is proxying AI generation so provider keys stay server-side.
+they can play, tweak in plain words, and keep. An AI agent ("Mishi") builds and
+changes games in a plan → build → playtest → fix loop the child can watch. It is
+**local-first** — there is no backend database; games and chats persist in the
+browser via IndexedDB. The server only runs the agent (keys stay server-side) and
+its sandboxed playtests.
 
 ## Commands
 
@@ -60,73 +62,108 @@ The `@/` import alias maps to `src/` (configured in both `tsconfig.json` and
 
 ## AI provider selection
 
-`src/lib/ai/games.ts` and `examples.ts` resolve the model from env at request time
-(see README for the full table):
+`src/lib/ai/models.ts` resolves models from env at request time (full table in
+README / `.env.example`). One knob, `AGENT_MODEL`, a `provider/model` slug
+(default `anthropic/claude-sonnet-5.5`):
 
-- `GOOGLE_GENERATIVE_AI_API_KEY` set → use Gemini directly (free, card-free). Preferred.
-- else → use a Vercel AI Gateway model slug (`GAME_MODEL`, default `google/gemini-3.5-flash`).
-- `MOCK_AI=1` → no key needed; `mockGame.ts` returns a real playable demo game offline.
+- slug is `anthropic/*` and `ANTHROPIC_API_KEY` set → Anthropic directly
+  (dots → dashes: `claude-sonnet-5.5` → `claude-sonnet-5-5`).
+- slug is `google/*` and `GOOGLE_GENERATIVE_AI_API_KEY` set → Gemini directly.
+- otherwise → Vercel AI Gateway (OIDC on Vercel). `GAME_MODEL` is the legacy alias.
+- `MOCK_AI=1` → `mockModel.ts`, a scripted offline LanguageModelV3 that drives the
+  REAL agent loop and tools against a real playable demo game. Use it for local
+  dev and for end-to-end tests.
 
-`MOCK_AI` is the way to develop/run locally without any key. Model resolution uses
-`||` (not `??`) so an empty env string falls back to the default.
+Claude gets adaptive thinking (`AGENT_EFFORT`, default medium) and two prompt-cache
+breakpoints (standing instructions; per-turn game context). Resolution uses `||`
+(not `??`) so an empty env string falls back to the default.
 
 **Never read `.env*` files** (global rule). Use `.env.example` to learn which vars exist.
 
 ## Architecture
 
-The app is a single client-rendered page with three server API routes that proxy AI.
+A single client-rendered page plus two server routes: `/api/agent` (the game
+agent) and `/api/examples` (idea chips).
 
-**Client state lives in `src/app/page.tsx`** (`Home`). It holds `current` (the open
-game version) and the `games` list. When `current` is null it renders the picker
-(`Shell` + `GamesDrawer`); when set it renders `PlayView`. All persistence flows
-through `src/lib/storage/repository.ts`.
+**Client state lives in `src/app/page.tsx`** (`Home`). It holds `open: OpenGame |
+null` (`{ gameId, starterId, version, firstPrompt? }`) and the `games` list. Null
+renders the picker (`Shell` + `GamesDrawer`); otherwise `PlayView` — the studio.
+All persistence flows through `src/lib/storage/repository.ts`.
 
-**Generation flow:**
-1. `Shell` collects starter + prompt, runs `isPromptSafeForKids` client-side, POSTs to `/api/generate`.
-2. `/api/generate` (edge runtime) re-checks safety server-side, calls `streamGenerateGame`.
-3. The route **streams** partial `{ title, code }` objects as newline-delimited JSON
-   (`application/x-ndjson`). Streaming is required so the edge function doesn't time out
-   on long generations. `readGameStream` (`streamClient.ts`) reads the stream and keeps
-   the last complete object.
-4. `page.tsx` saves a new `GameVersion` (random `game_id`, `version_id = game_id_timestamp`)
-   and opens `PlayView`.
+**The agent turn** (`src/lib/agent/`):
+1. `PlayView` → `useGameAgent` (wraps `useChat`) sends the compacted chat plus
+   `{ starterId, game }` — the game the child is playing travels with each request,
+   never in chat history. A new game opens the studio with `version: null` and
+   auto-sends the child's idea.
+2. `/api/agent` (Node runtime, `maxDuration` 300) validates the body, re-runs
+   `isPromptSafeForKids`, re-compacts, and calls `runGameTurn`.
+3. `runGameTurn` builds a `ToolLoopAgent` over a per-turn `GameWorkspace` with
+   tools `makePlan`, `writeGame`, `editGame`, `readGame`, `playtest`, `finish`.
+   It stops on `finish` or `MAX_AGENT_STEPS` (the last step is forced to `finish`
+   if the game changed), and always ends with one `finish` chunk.
+4. Streamed to the client: text + tool parts (rendered as kid-friendly steps by
+   `AgentStep`), transient `data-game` (the live game → preview) and persistent
+   `data-result` (summary, edits, suggestions — never the code).
+5. On finish, the hook saves a `GameVersion` (code from the last `data-game`,
+   `message_id` = the assistant message) and persists the chat.
 
-**Refinement flow is intentionally different from generation.** `/api/refine` →
-`refineGame` does NOT regenerate the whole file. A fast model can't reliably re-emit
-~30KB of unchanged HTML (it tends to gut the game), so refine asks the model for a
-small set of `{ find, replace }` edits (`EditsSchema`, max 20) and `applyEdits`
-applies them as exact string replacements. Untouched bytes stay identical by
-construction, preserving working features. Keep this approach when editing refine.
+**Edits stay find/replace.** Re-emitting a whole file guts games, so changes go
+through `editGame` → `applyEdits`: exact replacements, and each `find` must match
+EXACTLY ONCE (ambiguous snippets are rejected, never guessed). Failures return a
+reason + nearest-line hint so the agent retries. `writeGame` is for new games or
+real redesigns. Keep this approach.
 
-**Versions & undo/redo.** Every generate and every refine writes a new `GameVersion`
-row sharing the same `game_id`. `PlayView` loads all versions for the game (newest
-first) and implements undo/redo by walking that list — there is no separate undo
-stack. `listGames` returns the newest version per `game_id` for the drawer.
+**Playtests** (`src/lib/agent/playtest/`): with `PLAYTEST_SNAPSHOT_ID`, one Vercel
+Sandbox VM per turn (booted lazily from the snapshot, network limited to
+cdn.jsdelivr.net, stopped when the turn ends) runs `harness.ts` — a Playwright
+script — and the screenshot goes to the model via `toModelOutput` (never into the
+chat stream). Without a snapshot, or if the sandbox fails, `staticCheck.ts`
+compiles inline scripts with `node:vm` (never executes them).
+
+**Versions, chat & undo.** Every turn that changed the game writes a new
+`GameVersion` sharing the `game_id`; the chat (Dexie `chats` table, one row per
+game) is the undo timeline — each `data-result` maps to its version via
+`message_id` (`conversation.ts`). Going back deletes later versions AND truncates
+the chat after that message. Pre-agent games get a chat rebuilt from versions.
 
 **Games run sandboxed.** `PlayView` renders the generated HTML in
 `<iframe sandbox="allow-scripts" srcDoc={code}>`. The game has no access to the
-parent page or storage. Treat generated `code` as untrusted; never inject it anywhere
-but this sandboxed iframe.
+parent page or storage. Treat generated `code` as untrusted; never inject it
+anywhere but this sandboxed iframe (or the playtest VM).
 
 ### Key modules
 
 | Path | Role |
 |---|---|
-| `src/lib/ai/games.ts` | `streamGenerateGame`, `refineGame`, model resolution, stream encoding |
-| `src/lib/ai/examples.ts` | per-starter example prompts via a small/cheap model (falls back to curated) |
-| `src/lib/ai/streamClient.ts` | client-side NDJSON stream reader |
-| `src/lib/ai/schema.ts` | `GameSchema` = `{ title, code }` (zod) |
-| `src/lib/ai/mockGame.ts` | offline demo game for `MOCK_AI=1` |
+| `src/lib/agent/protocol.ts` | Isomorphic contract: tool schemas, data parts, `GameUIMessage`, limits |
+| `src/lib/agent/agent.ts` | `runGameTurn` — the ToolLoopAgent, stop rules, stream epilogue |
+| `src/lib/agent/tools.ts` | The six tools (thin adapters over workspace/playtester) |
+| `src/lib/agent/workspace.ts` | `GameWorkspace` — the game + the story of the turn (pure) |
+| `src/lib/agent/prompt.ts` | Mishi's instructions (static, cached) + per-turn context |
+| `src/lib/agent/playtest/` | Sandbox playtester, Playwright harness, static fallback |
+| `src/lib/agent/compact.ts` | History compaction (shared by client and server) |
+| `src/lib/agent/conversation.ts` | Chat ↔ version mapping, legacy chat rebuild, truncation |
+| `src/lib/agent/useGameAgent.ts` | Client hook: useChat + live preview + saving versions/chat |
+| `src/lib/agent/mockModel.ts` | Offline scripted model for `MOCK_AI=1` |
+| `src/lib/ai/models.ts` | Model routing + Anthropic options |
+| `src/lib/ai/applyEdits.ts` | Exact, unique find/replace |
+| `src/lib/games/systemPrompt.ts` | `GAME_CRAFT_RULES` — the quality bar for every game |
 | `src/lib/games/registry.ts` | `GAME_STARTERS` (fun + learning categories), starter lookups |
-| `src/lib/games/systemPrompt.ts` | the system prompt that governs generated game quality |
 | `src/lib/safety/kidSafety.ts` | word-list prompt filter (run on client AND in API routes) |
-| `src/lib/storage/{db,repository}.ts` | Dexie schema + version CRUD |
-| `src/lib/diff/summarizeChange.ts` | friendly "what changed" line-count summary |
-| `src/components/play/` | UI: `Shell`, `PlayView`, `GamesDrawer`, `GameStarterCards`, etc. |
+| `src/lib/storage/{db,repository}.ts` | Dexie schema (v2: versions + chats) + CRUD |
+| `src/components/play/` | UI: `Shell`, `PlayView`, `StudioChat`, `AgentStep`, `BuildStage`, `ChangePanel`, … |
 
 ### Conventions
 
-- Server-only AI modules import `"server-only"`; all API routes use `export const runtime = "edge"`.
+- Server-only AI modules import `"server-only"` (vitest aliases it to the empty
+  module so they're unit-testable). `/api/agent` is `runtime = "nodejs"` (Sandbox
+  SDK, `node:vm`); `/api/examples` stays on edge.
+- Anything both sides need (schemas, types, compaction) lives in isomorphic
+  modules — the client never imports a `server-only` file.
+- Real-browser harness tests run when a Playwright Chromium is installed
+  (`npx playwright install chromium`); otherwise they're skipped — say so.
+- Product: Mishi's text is read by a child — 1–3 short, warm sentences. Step copy
+  lives in `AgentStep.tsx`; keep it jargon-free.
 - Adding a game kind: add a `GameStarter` to `GAME_STARTERS` (set `category` to
   `"fun"` or `"learning"`). The UI groups by category automatically.
 - Safety checks must stay on **both** sides — the client check is UX, the API check is the guard.

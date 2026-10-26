@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { pickHero } from "@/lib/diff/heroSnippet";
 import { useFirstTime } from "@/lib/onboarding/useFirstTime";
-import type { AppliedEdit } from "@/lib/ai/schema";
+import type { AppliedEdit } from "@/lib/ai/edits";
+import { ChildBubble } from "./ChildBubble";
 
 // Show the full snippet when both sides are short enough to keep context
 // ("speed = 5" → "speed = 9"); otherwise fall back to just the changed span.
@@ -56,16 +57,7 @@ export function ChangeBubble({
   return (
     <div className="flex flex-col gap-2">
       {/* What the child asked for */}
-      {youSaid && (
-        <div className="flex justify-end">
-          <div className="max-w-[85%] rounded-2xl rounded-br-md bg-grape px-3.5 py-2 text-[15px] font-bold text-white shadow-[0_3px_0_var(--color-grape-dark)]">
-            <span className="mr-1.5" aria-hidden="true">
-              🧒
-            </span>
-            {youSaid}
-          </div>
-        </div>
-      )}
+      {youSaid && <ChildBubble>{youSaid}</ChildBubble>}
 
       {/* What Mishi did */}
       <div className="flex justify-start">
