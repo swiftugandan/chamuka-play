@@ -1,4 +1,4 @@
-import type { AppliedEdit } from "@/lib/ai/schema";
+import type { AppliedEdit } from "@/lib/ai/edits";
 
 /** Default legibility budget: a changed span longer than this (before + after,
  *  in characters) is too big to show a child as a snippet. */

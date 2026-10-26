@@ -1,23 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Mascot } from "./Mascot";
-import { Building } from "./Building";
 import { GameStarterCards } from "./GameStarterCards";
 import { MicButton } from "./MicButton";
 import { getStarter, startersByCategory } from "@/lib/games/registry";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
-import { readGameStream } from "@/lib/ai/streamClient";
-import { networkErrorNotice } from "@/lib/net/networkErrorNotice";
-import type { Game } from "@/lib/ai/schema";
 
 export function Shell({
-  onCreated,
+  onStart,
 }: {
-  onCreated: (game: Game, starterId: string, prompt: string) => void;
+  /** Open the studio and have Mishi build this idea. */
+  onStart: (starterId: string, prompt: string) => void;
 }) {
   const [starterId, setStarterId] = useState("clicker");
   const [prompt, setPrompt] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   // AI-generated example prompts per starter (curated list is the fallback).
   const [aiExamples, setAiExamples] = useState<Record<string, string[]>>({});
@@ -39,37 +35,17 @@ export function Shell({
     };
   }, [starterId, aiExamples]);
 
-  async function makeGame() {
-    if (!prompt.trim()) return;
-    const safety = isPromptSafeForKids(prompt);
+  function makeGame() {
+    const idea = prompt.trim();
+    if (!idea) return;
+    // The client check is instant UX; /api/agent re-checks as the real guard.
+    const safety = isPromptSafeForKids(idea);
     if (!safety.safe) {
       setError(safety.reason ?? "Pick a friendlier idea!");
       return;
     }
-    setBusy(true);
     setError("");
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ starterId, prompt }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Something went wrong.");
-        return;
-      }
-      const game = await readGameStream(res);
-      if ("error" in game) {
-        setError(game.error || "Something went wrong.");
-        return;
-      }
-      onCreated(game, starterId, prompt);
-    } catch {
-      setError(networkErrorNotice(navigator.onLine));
-    } finally {
-      setBusy(false);
-    }
+    onStart(starterId, idea);
   }
 
   const examples =
@@ -159,13 +135,11 @@ export function Shell({
       <button
         type="button"
         onClick={makeGame}
-        disabled={busy || !prompt.trim()}
+        disabled={!prompt.trim()}
         className="btn-toy btn-make font-display mt-[18px] flex w-full items-center justify-center gap-2.5 rounded-full p-4 text-xl font-bold text-white sm:p-5 sm:text-2xl"
       >
         <span className="text-2xl">✨</span> Make my game!
       </button>
-
-      {busy && <Building label="Building your game…" />}
     </div>
   );
 }

@@ -1,21 +1,16 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Shell } from "@/components/play/Shell";
-import { PlayView } from "@/components/play/PlayView";
+import { PlayView, type OpenGame } from "@/components/play/PlayView";
 import { GamesDrawer } from "@/components/play/GamesDrawer";
 import { AppHeader } from "@/components/play/AppHeader";
 import { AppFooter } from "@/components/play/AppFooter";
-import {
-  listGames,
-  saveVersion,
-  deleteGame,
-  type GameVersion,
-} from "@/lib/storage/repository";
-import type { Game } from "@/lib/ai/schema";
+import { listGames, deleteGame, type GameVersion } from "@/lib/storage/repository";
 import { newId } from "@/lib/id";
 
 export default function Home() {
-  const [current, setCurrent] = useState<GameVersion | null>(null);
+  // The game open in the studio (null shows the picker).
+  const [open, setOpen] = useState<OpenGame | null>(null);
   const [games, setGames] = useState<GameVersion[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -29,27 +24,14 @@ export default function Home() {
     refreshGames();
   }, [refreshGames]);
 
-  async function handleCreated(game: Game, starterId: string, prompt: string) {
-    const ts = Date.now();
-    const gameId = newId();
-    const version: GameVersion = {
-      version_id: `${gameId}_${ts}`,
-      game_id: gameId,
-      title: game.title,
-      code: game.code,
-      prompt,
-      starterId,
-      timestamp: ts,
-      suggestions: game.suggestions,
-    };
-    await saveVersion(version);
-    refreshGames();
-    setCurrent(version);
+  // A new game opens straight into the studio, where Mishi builds it live.
+  function startGame(starterId: string, prompt: string) {
+    setOpen({ gameId: newId(), starterId, version: null, firstPrompt: prompt });
   }
 
   function openGame(v: GameVersion) {
     setDrawerOpen(false);
-    setCurrent(v);
+    setOpen({ gameId: v.game_id, starterId: v.starterId, version: v });
   }
 
   async function handleDelete(gameId: string) {
@@ -57,16 +39,16 @@ export default function Home() {
     refreshGames();
   }
 
-  if (current) {
+  if (open) {
     return (
       <PlayView
-        current={current}
+        game={open}
         onNewGame={() => {
           refreshGames();
-          setCurrent(null);
+          setOpen(null);
         }}
         onUpdated={(v) => {
-          setCurrent(v);
+          setOpen((o) => (o && o.gameId === v.game_id ? { ...o, version: v } : o));
           refreshGames();
         }}
       />
@@ -80,7 +62,7 @@ export default function Home() {
         onOpenGames={() => setDrawerOpen(true)}
       />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-6 sm:px-6">
-        <Shell onCreated={handleCreated} />
+        <Shell onStart={startGame} />
       </main>
       <AppFooter />
       <GamesDrawer

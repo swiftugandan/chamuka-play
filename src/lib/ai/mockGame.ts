@@ -1,11 +1,11 @@
 import { getStarter } from "@/lib/games/registry";
-import type { Game, RefineResult, AppliedEdit } from "./schema";
-import { applyEdits } from "./applyEdits";
+import type { AppliedEdit } from "./edits";
 
 /**
- * Offline mock for local demos (enabled with MOCK_AI=1). Returns a real,
- * playable single-file game so the whole flow works without an AI Gateway key.
- * Refine produces a visibly different build so the "what changed" diff is real.
+ * Offline game material for local demos (MOCK_AI=1). The scripted mock agent
+ * (src/lib/agent/mockModel.ts) uses these to build a real, playable game and to
+ * make real find/replace edits to it, so the whole studio — live preview, tool
+ * steps, what-changed diff, undo — works with no AI provider at all.
  */
 
 const ACCENTS = ["#7a3cf0", "#ff4fa3", "#45b6fe", "#25d0a8", "#ffc233", "#ff7a66"];
@@ -19,8 +19,6 @@ function hash(s: string): number {
 function clean(s: string): string {
   return s.replace(/[<>"'\\\r\n]/g, " ").trim().slice(0, 80);
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function buildGame(opts: {
   title: string;
@@ -68,50 +66,48 @@ function buildGame(opts: {
 </html>`;
 }
 
-export async function mockGenerate(input: {
-  starterId: string;
-  prompt: string;
-}): Promise<Game> {
-  await sleep(900);
+/** A brand-new demo game for a starter + idea. */
+export function buildMockGame(input: { starterId: string; prompt: string }): {
+  title: string;
+  code: string;
+} {
   const starter = getStarter(input.starterId);
   const accent = ACCENTS[hash(input.prompt) % ACCENTS.length];
   const idea = clean(input.prompt) || "Surprise";
   const title = `${starter?.label ?? "Game"}: ${idea}`.slice(0, 48);
-  return {
-    title,
-    code: buildGame({ title, accent, speed: 2.2 }),
-    suggestions: [
-      "make the stars fall faster",
-      "change the star colour",
-      "add a high score",
-    ],
-  };
+  return { title, code: buildGame({ title, accent, speed: 2.2 }) };
 }
 
-export async function mockRefine(input: {
-  code: string;
-  instruction: string;
-}): Promise<RefineResult> {
-  await sleep(800);
-  const faster = /fast|speed|hard|quick/i.test(input.instruction);
+export const MOCK_NEW_GAME_SUGGESTIONS = [
+  "make the stars fall faster",
+  "change the star colour",
+  "add a high score",
+];
 
-  // Make real, small find/replace edits on the actual code so the change log —
-  // hero snippet included — shows true before/after values offline.
+/** Real, small find/replace edits on the demo game for a change request, so
+ *  the change log — hero snippet included — shows true before/after values. */
+export function mockChangeEdits(
+  code: string,
+  instruction: string,
+): { edits: AppliedEdit[]; summary: string; suggestions: string[] } {
+  const faster = /fast|speed|hard|quick/i.test(instruction);
   const edits: AppliedEdit[] = [];
 
-  const fall = input.code.match(/fall=([\d.]+)/);
+  const fall = code.match(/fall=([\d.]+)/);
   if (fall) {
     const next = faster ? "3.6" : "2.8";
-    edits.push({
-      find: `fall=${fall[1]}`,
-      replace: `fall=${next}`,
-      because: "This number is how fast the stars fall — bigger = faster! ⚡",
-    });
+    if (next !== fall[1]) {
+      edits.push({
+        find: `fall=${fall[1]}`,
+        replace: `fall=${next}`,
+        because: "This number is how fast the stars fall — bigger = faster! ⚡",
+      });
+    }
   }
 
-  const color = input.code.match(/accent="(#[0-9a-fA-F]{6})"/);
+  const color = code.match(/accent="(#[0-9a-fA-F]{6})"/);
   if (color) {
-    const next = ACCENTS[(hash(input.instruction) + 3) % ACCENTS.length];
+    const next = ACCENTS[(hash(instruction) + 3) % ACCENTS.length];
     if (next.toLowerCase() !== color[1].toLowerCase()) {
       edits.push({
         find: `accent="${color[1]}"`,
@@ -121,17 +117,11 @@ export async function mockRefine(input: {
     }
   }
 
-  const { code, applied } = applyEdits(input.code, edits);
-  if (applied.length === 0) {
-    return { title: "", code: input.code, summary: "", edits: [], suggestions: [] };
-  }
   return {
-    title: "Updated game ✨",
-    code,
+    edits,
     summary: faster
       ? "I made the stars fall faster! ⚡"
       : "I gave your game a fresh new look! 🎨",
-    edits: applied,
     suggestions: faster
       ? ["make the stars bigger", "change the colours", "add a high score"]
       : ["make it harder", "make the stars fall slower", "add a timer"],

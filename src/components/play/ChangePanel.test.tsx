@@ -16,13 +16,16 @@ const base: GameVersion = {
 function renderPanel(props: Partial<Parameters<typeof ChangePanel>[0]> = {}) {
   return render(
     <ChangePanel
+      messages={[]}
       versions={[base]}
       currentVersionId="g_1"
       onTravel={() => {}}
       busy={false}
+      waiting={false}
       instruction=""
       onInstructionChange={() => {}}
       onSubmit={() => {}}
+      onStop={() => {}}
       notice=""
       suggestions={[]}
       onPickSuggestion={() => {}}
@@ -73,5 +76,20 @@ describe("ChangePanel", () => {
     expect(
       screen.queryByRole("button", { name: "make it rainbow" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("swaps the send button for Stop while Mishi works", () => {
+    const onStop = vi.fn();
+    renderPanel({ busy: true, onStop });
+    expect(screen.queryByRole("button", { name: /change it/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /stop mishi/i }));
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks to make the game when there is no game yet", () => {
+    renderPanel({ currentVersionId: null, instruction: "a bunny" });
+    expect(screen.getByRole("button", { name: /make it/i })).toBeEnabled();
+    // No "try asking" ideas before there is a game to change.
+    expect(screen.queryByText(/try asking mishi/i)).not.toBeInTheDocument();
   });
 });
