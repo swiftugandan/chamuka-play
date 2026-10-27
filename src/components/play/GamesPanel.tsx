@@ -94,7 +94,7 @@ export function GamesPanel({
                         {g.title}
                       </span>
                       {g.unfinished && (
-                        <span className="shrink-0 rounded-full bg-sun/25 px-1.5 py-px text-[10px] font-extrabold text-[#7a5200]">
+                        <span className="shrink-0 rounded-full bg-sun/25 px-2 py-0.5 text-[11px] font-extrabold text-[#7a5200]">
                           Not finished
                         </span>
                       )}

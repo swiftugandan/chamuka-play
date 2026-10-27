@@ -287,7 +287,7 @@ describe("PlayView studio", () => {
 
       const resumed = JSON.parse(fetchSpy.mock.calls[1][1]!.body as string);
       expect(resumed.game).toEqual({ title: "Stars", code: "<html>speed = 9</html>" });
-      expect(resumed.resume).toEqual({ isNew: false, edits: [faster] });
+      expect(resumed.resume).toEqual({ isNew: false, edits: [faster], rewritten: false });
       expect(resumed.messages.at(-1).parts).toEqual([{ type: "text", text: "Keep going!" }]);
 
       // Saved from the kept work, with the child's real request as the story.
@@ -393,6 +393,7 @@ describe("PlayView studio", () => {
       expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string).resume).toEqual({
         isNew: true,
         edits: [],
+        rewritten: false,
       });
       expect(onUpdated.mock.calls[0][0]).toMatchObject({
         code: "<html>bunny</html>",
@@ -447,6 +448,169 @@ describe("PlayView studio", () => {
       await waitFor(async () =>
         expect(await getDraft("g")).toMatchObject({ interrupted: false, game: null }),
       );
+    });
+  
+    /** A turn that streams some work and then hangs until it is aborted. */
+    function hangingTurn(chunks: object[]) {
+      return (_url: unknown, init?: RequestInit) => {
+        const encoder = new TextEncoder();
+        const body = new ReadableStream({
+          start(controller) {
+            for (const c of chunks) controller.enqueue(encoder.encode(`data: ${JSON.stringify(c)}\n\n`));
+            init?.signal?.addEventListener("abort", () =>
+              controller.error(new DOMException("Aborted", "AbortError")),
+            );
+          },
+        });
+        return Promise.resolve(
+          new Response(body, {
+            headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+          }),
+        );
+      };
+    }
+
+    it("leaving mid-turn stops Mishi and keeps the work to resume later", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(
+        hangingTurn([
+          { type: "start", messageId: "m_busy" },
+          {
+            type: "data-game",
+            data: { title: "Stars", code: "<html>speed = 9</html>", revision: 1, edits: [faster] },
+            transient: true,
+          },
+        ]) as typeof fetch,
+      );
+      const onNewGame = vi.fn();
+      render(<PlayView game={open(current)} onNewGame={onNewGame} onUpdated={() => {}} />);
+      await screen.findByLabelText(/describe a change/i);
+      typeAndSend("make it faster");
+      await waitFor(() => expect(screenCode()).toBe("<html>speed = 9</html>"));
+
+      fireEvent.click(screen.getByRole("button", { name: /make another/i }));
+      expect(onNewGame).toHaveBeenCalled();
+      // Stopped, not left running: the work is kept as unfinished.
+      expect(await screen.findByRole("button", { name: /keep going/i })).toBeInTheDocument();
+      await waitFor(async () =>
+        expect(await getDraft("g")).toMatchObject({
+          interrupted: true,
+          game: { code: "<html>speed = 9</html>" },
+        }),
+      );
+    });
+
+    it("files a new request typed after a stop-before-anything-was-built under the new words", async () => {
+      await db.drafts.put({
+        game_id: "g",
+        starterId: "clicker",
+        prompt: "make it blue",
+        isNew: false,
+        game: null,
+        edits: [],
+        messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "make it blue" }] }],
+        interrupted: true,
+        updatedAt: 5,
+      });
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(agentResponse(changeTurn));
+      const onUpdated = vi.fn();
+      render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={onUpdated} />);
+      await screen.findByRole("button", { name: /try again/i });
+      typeAndSend("make it faster");
+
+      await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+      expect(onUpdated.mock.calls[0][0].instruction).toBe("make it faster");
+      // Nothing was built before, so this is a plain change of the saved game.
+      const sent = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+      expect(sent.game.code).toBe("<html>speed = 5</html>");
+      expect(sent.resume).toBeUndefined();
+    });
+
+    it("joins a new request typed over an unfinished change into the change story", async () => {
+      await db.drafts.put({
+        game_id: "g",
+        starterId: "clicker",
+        prompt: "make it faster",
+        isNew: false,
+        game: { title: "Stars", code: "<html>speed = 9</html>" },
+        edits: [faster],
+        messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "make it faster" }] }],
+        interrupted: true,
+        updatedAt: 5,
+      });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(agentResponse(changeTurn));
+      const onUpdated = vi.fn();
+      render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={onUpdated} />);
+      await screen.findByRole("button", { name: /keep going/i });
+      typeAndSend("and make it red");
+
+      await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+      expect(onUpdated.mock.calls[0][0].instruction).toBe("make it faster, then and make it red");
+    });
+
+    it("sends only the newest part of a long change story when resuming", async () => {
+      const edits = Array.from({ length: 70 }, (_, i) => ({ find: `a${i}`, replace: `b${i}` }));
+      await db.drafts.put({
+        game_id: "g",
+        starterId: "clicker",
+        prompt: "make it faster",
+        isNew: false,
+        game: { title: "Stars", code: "<html>speed = 9</html>" },
+        edits,
+        messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "make it faster" }] }],
+        interrupted: true,
+        updatedAt: 5,
+      });
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(agentResponse(changeTurn));
+      render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={() => {}} />);
+      fireEvent.click(await screen.findByRole("button", { name: /keep going/i }));
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+      const sent = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+      expect(sent.resume.edits).toHaveLength(60);
+      expect(sent.resume.edits.at(-1)).toEqual({ find: "a69", replace: "b69" });
+    });
+
+    it("lets the child say never mind when nothing was built", async () => {
+      await db.drafts.put({
+        game_id: "g",
+        starterId: "clicker",
+        prompt: "make it blue",
+        isNew: false,
+        game: null,
+        edits: [],
+        messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "make it blue" }] }],
+        interrupted: true,
+        updatedAt: 5,
+      });
+      render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={() => {}} />);
+      fireEvent.click(await screen.findByRole("button", { name: /never mind/i }));
+
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument(),
+      );
+      await waitFor(async () => expect(await getDraft("g")).toBeNull());
+    });
+
+    it("keeps what the child typed when they tap Keep going", async () => {
+      await db.drafts.put({
+        game_id: "g",
+        starterId: "clicker",
+        prompt: "make it faster",
+        isNew: false,
+        game: { title: "Stars", code: "<html>speed = 9</html>" },
+        edits: [faster],
+        messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "make it faster" }] }],
+        interrupted: true,
+        updatedAt: 5,
+      });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(agentResponse(changeTurn));
+      render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={() => {}} />);
+      await screen.findByRole("button", { name: /keep going/i });
+      fireEvent.change(screen.getByLabelText(/describe a change/i), {
+        target: { value: "add a rainbow" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /keep going/i }));
+      await waitFor(() => expect(screen.getByLabelText(/describe a change/i)).toHaveValue("add a rainbow"));
     });
   });
 });

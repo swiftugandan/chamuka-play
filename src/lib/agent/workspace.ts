@@ -7,6 +7,8 @@ import { MAX_GAME_BYTES } from "./protocol";
 export interface WorkspaceResume {
   isNew: boolean;
   edits: AppliedEdit[];
+  /** The interrupted work had already rewritten the whole file. */
+  rewritten?: boolean;
 }
 
 /** Longest `find` echoed back in a failure report (the model already has it). */
@@ -35,7 +37,10 @@ export class GameWorkspace {
     this.code = initial?.code ?? "";
     this.startCode = this.code;
     this.resumed = resume && this.code ? resume : null;
-    if (this.resumed) this.turnEdits.push(...this.resumed.edits);
+    if (this.resumed) {
+      this.turnEdits.push(...this.resumed.edits);
+      this.rewritten = this.resumed.rewritten ?? false;
+    }
   }
 
   /** Whether this work is a brand-new creation (nothing saved before it). */
@@ -55,6 +60,11 @@ export class GameWorkspace {
 
   get lineCount(): number {
     return this.code === "" ? 0 : this.code.split("\n").length;
+  }
+
+  /** Whether the whole file was rewritten in this piece of work. */
+  get wasRewritten(): boolean {
+    return this.rewritten;
   }
 
   /** The edits to show the child for this turn. Empty after a rewrite: a

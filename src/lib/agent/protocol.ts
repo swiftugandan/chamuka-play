@@ -157,6 +157,8 @@ export interface GameDataPart {
   revision: number;
   /** The edits made so far in this piece of work (for the change story). */
   edits: AppliedEdit[];
+  /** The whole file was rewritten in this piece of work (edits no longer apply). */
+  rewritten: boolean;
 }
 
 /** Persistent: what this turn produced. The code itself is NOT stored here —
@@ -190,8 +192,16 @@ export type GameUIMessagePart = GameUIMessage["parts"][number];
 
 // ── Request ───────────────────────────────────────────────────────────────────
 
-/** Most edits carried over when resuming unfinished work (several attempts). */
+/** Edits kept in a resumed change story — the newest ones. Older ones are
+ *  dropped, never rejected: a long story must not stop the child resuming. */
 export const MAX_RESUMED_EDITS = 60;
+/** Hard bound on what one request may carry (it is trimmed to the above). */
+const MAX_RESUME_EDITS_ACCEPTED = 400;
+
+/** The part of a change story that travels with a resume. */
+export function resumableEdits(edits: AppliedEdit[]): AppliedEdit[] {
+  return edits.slice(-MAX_RESUMED_EDITS);
+}
 
 const appliedEditSchema = z.object({
   find: z.string().max(MAX_GAME_BYTES),
@@ -219,7 +229,9 @@ export const agentRequestSchema = z.object({
       /** The work is a brand-new game (nothing saved yet). */
       isNew: z.boolean(),
       /** Edits already made, so the saved change story is complete. */
-      edits: z.array(appliedEditSchema).max(MAX_RESUMED_EDITS),
+      edits: z.array(appliedEditSchema).max(MAX_RESUME_EDITS_ACCEPTED).transform(resumableEdits),
+      /** The interrupted work rewrote the whole file of a saved game. */
+      rewritten: z.boolean().optional(),
     })
     .optional(),
 }).refine((body) => !body.resume || body.game !== null, {
