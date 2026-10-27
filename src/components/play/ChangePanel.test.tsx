@@ -92,4 +92,24 @@ describe("ChangePanel", () => {
     // No "try asking" ideas before there is a game to change.
     expect(screen.queryByText(/try asking mishi/i)).not.toBeInTheDocument();
   });
+
+  it("offers to keep going instead of suggestions after an interrupted turn", () => {
+    const onResume = vi.fn();
+    const onDiscard = vi.fn();
+    renderPanel({
+      suggestions: ["make it rainbow"],
+      unfinished: { hasGame: true, onResume, onDiscard },
+    });
+    expect(screen.queryByText("make it rainbow")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /keep going/i }));
+    fireEvent.click(screen.getByRole("button", { name: /throw it away/i }));
+    expect(onResume).toHaveBeenCalledOnce();
+    expect(onDiscard).toHaveBeenCalledOnce();
+  });
+
+  it("offers to try again when nothing was built before the interruption", () => {
+    renderPanel({ unfinished: { hasGame: false, onResume: () => {}, onDiscard: () => {} } });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /throw it away/i })).not.toBeInTheDocument();
+  });
 });

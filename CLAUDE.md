@@ -105,7 +105,9 @@ All persistence flows through `src/lib/storage/repository.ts`.
    `AgentStep`), transient `data-game` (the live game → preview) and persistent
    `data-result` (summary, edits, suggestions — never the code).
 5. On finish, the hook saves a `GameVersion` (code from the last `data-game`,
-   `message_id` = the assistant message) and persists the chat.
+   `message_id` = the assistant message) and persists the chat. The server ends
+   every complete turn with `finish` + `finishReason: "stop"`; a stream without it
+   (e.g. a function timeout) counts as interrupted.
 
 **Edits stay find/replace.** Re-emitting a whole file guts games, so changes go
 through `editGame` → `applyEdits`: exact replacements, and each `find` must match
@@ -125,6 +127,19 @@ compiles inline scripts with `node:vm` (never executes them).
 game) is the undo timeline — each `data-result` maps to its version via
 `message_id` (`conversation.ts`). Going back deletes later versions AND truncates
 the chat after that message. Pre-agent games get a chat rebuilt from versions.
+
+**Unfinished work (drafts).** Nothing Mishi builds is lost if a turn never
+finishes (stop, error, timeout, closed tab). While a turn runs, `useGameAgent`
+mirrors it to the Dexie `drafts` table (one row per game): the child's prompt,
+the latest `data-game` (code + edits so far) and a throttled chat snapshot. A
+saved version deletes the draft; an interrupted turn keeps it (`interrupted`).
+Reopening the game shows the draft on the console with a "Keep going!" card
+(`ResumeCard`), and games whose first build never finished still appear in the
+list ("Not finished"). Resuming sends the draft as `game` plus
+`resume: { isNew, edits }`; the server's `GameWorkspace` treats it as unsaved
+work (`changed` is true, prior edits are kept) and `turnContext` tells Mishi to
+finish rather than start over. Going back to a version, or "Throw it away", drops
+the draft.
 
 **Games run sandboxed.** `PlayView` renders the generated HTML in
 `<iframe sandbox="allow-scripts" srcDoc={code}>`. The game has no access to the
@@ -150,7 +165,7 @@ anywhere but this sandboxed iframe (or the playtest VM).
 | `src/lib/games/systemPrompt.ts` | `GAME_CRAFT_RULES` — the quality bar for every game |
 | `src/lib/games/registry.ts` | `GAME_STARTERS` (fun + learning categories), starter lookups |
 | `src/lib/safety/kidSafety.ts` | word-list prompt filter (run on client AND in API routes) |
-| `src/lib/storage/{db,repository}.ts` | Dexie schema (v2: versions + chats) + CRUD |
+| `src/lib/storage/{db,repository}.ts` | Dexie schema (v3: versions + chats + drafts) + CRUD, `listGames` summaries |
 | `src/components/play/` | UI: `Shell`, `PlayView`, `StudioChat`, `AgentStep`, `BuildStage`, `ChangePanel`, … |
 
 ### Conventions

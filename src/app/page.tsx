@@ -5,13 +5,13 @@ import { PlayView, type OpenGame } from "@/components/play/PlayView";
 import { GamesDrawer } from "@/components/play/GamesDrawer";
 import { AppHeader } from "@/components/play/AppHeader";
 import { AppFooter } from "@/components/play/AppFooter";
-import { listGames, deleteGame, type GameVersion } from "@/lib/storage/repository";
+import { listGames, deleteGame, type GameSummary } from "@/lib/storage/repository";
 import { newId } from "@/lib/id";
 
 export default function Home() {
   // The game open in the studio (null shows the picker).
   const [open, setOpen] = useState<OpenGame | null>(null);
-  const [games, setGames] = useState<GameVersion[]>([]);
+  const [games, setGames] = useState<GameSummary[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const refreshGames = useCallback(() => {
@@ -29,9 +29,11 @@ export default function Home() {
     setOpen({ gameId: newId(), starterId, version: null, firstPrompt: prompt });
   }
 
-  function openGame(v: GameVersion) {
+  // A game whose first build never finished opens with no version: the studio
+  // finds Mishi's unfinished work and offers to keep going.
+  function openGame(g: GameSummary) {
     setDrawerOpen(false);
-    setOpen({ gameId: v.game_id, starterId: v.starterId, version: v });
+    setOpen({ gameId: g.game_id, starterId: g.starterId, version: g.latest });
   }
 
   async function handleDelete(gameId: string) {

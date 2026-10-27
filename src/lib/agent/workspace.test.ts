@@ -95,6 +95,36 @@ describe("GameWorkspace", () => {
   });
 });
 
+describe("GameWorkspace resuming unfinished work", () => {
+  const before = { find: "SPEED = 1", replace: "SPEED = 3" };
+
+  it("counts the kept work as unsaved even before anything else changes", () => {
+    const ws = new GameWorkspace({ title: "Bunny", code: GAME }, { isNew: false, edits: [before] });
+    expect(ws.changed).toBe(true);
+    expect(ws.isNew).toBe(false);
+    expect(ws.edits).toEqual([before]);
+  });
+
+  it("adds new edits after the ones made before the interruption", () => {
+    const ws = new GameWorkspace({ title: "Bunny", code: GAME }, { isNew: false, edits: [before] });
+    ws.edit([{ find: "SPEED = 3", replace: "SPEED = 5" }]);
+    expect(ws.edits).toEqual([before, { find: "SPEED = 3", replace: "SPEED = 5" }]);
+  });
+
+  it("stays a brand-new game when the first build was the one interrupted", () => {
+    const ws = new GameWorkspace({ title: "Bunny", code: GAME }, { isNew: true, edits: [] });
+    expect(ws.isNew).toBe(true);
+    ws.write("Bunny", GAME.replace("SPEED = 3", "SPEED = 4"));
+    expect(ws.isNew).toBe(true);
+  });
+
+  it("ignores a resume with no game to resume", () => {
+    const ws = new GameWorkspace(null, { isNew: true, edits: [before] });
+    expect(ws.changed).toBe(false);
+    expect(ws.edits).toEqual([]);
+  });
+});
+
 describe("nearestLine", () => {
   it("returns nothing when no line is close enough to be helpful", () => {
     expect(nearestLine(GAME, "totally different words here")).toBeUndefined();

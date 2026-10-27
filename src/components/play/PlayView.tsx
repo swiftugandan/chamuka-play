@@ -4,7 +4,9 @@ import { ArrowLeft, Undo2 } from "lucide-react";
 import {
   deleteVersionsAfter,
   getChat,
+  getDraft,
   getVersions,
+  type GameDraft,
   type GameVersion,
 } from "@/lib/storage/repository";
 import { useGameAgent } from "@/lib/agent/useGameAgent";
@@ -65,16 +67,22 @@ export function PlayView({
     gameId: string;
     versions: GameVersion[];
     messages: GameUIMessage[];
+    draft: GameDraft | null;
   } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const versions = await getVersions(game.gameId).catch(() => []);
-      // Games made before the agent have versions but no chat: rebuild one.
-      const messages =
-        (await getChat(game.gameId).catch(() => null)) ?? messagesFromVersions(versions);
-      if (!cancelled) setLoaded({ gameId: game.gameId, versions, messages });
+      const [versions, chat, draft] = await Promise.all([
+        getVersions(game.gameId).catch(() => []),
+        getChat(game.gameId).catch(() => null),
+        getDraft(game.gameId).catch(() => null),
+      ]);
+      // Unfinished work carries the newest conversation (it is written while a
+      // turn runs). Games made before the agent have versions but no chat:
+      // rebuild one.
+      const messages = draft?.messages ?? chat ?? messagesFromVersions(versions);
+      if (!cancelled) setLoaded({ gameId: game.gameId, versions, messages, draft });
     })();
     return () => {
       cancelled = true;
@@ -90,6 +98,7 @@ export function PlayView({
       game={game}
       initialVersions={loaded.versions}
       initialMessages={loaded.messages}
+      initialDraft={loaded.draft}
       onNewGame={onNewGame}
       onUpdated={onUpdated}
     />
@@ -100,12 +109,14 @@ function Studio({
   game,
   initialVersions,
   initialMessages,
+  initialDraft,
   onNewGame,
   onUpdated,
 }: {
   game: OpenGame;
   initialVersions: GameVersion[];
   initialMessages: GameUIMessage[];
+  initialDraft: GameDraft | null;
   onNewGame: () => void;
   onUpdated: (v: GameVersion) => void;
 }) {
@@ -115,11 +126,14 @@ function Studio({
   const [versions, setVersions] = useState(initialVersions);
   // The version a pending revert would jump to (drives the confirm dialog).
   const [revertTarget, setRevertTarget] = useState<GameVersion | null>(null);
+  // Asking before Mishi's unfinished work is thrown away.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const agent = useGameAgent({
     gameId: game.gameId,
     starterId: game.starterId,
     initialMessages,
+    initialDraft,
     current,
     onVersion: (v) => {
       setVersions((list) => [v, ...list]);
@@ -142,7 +156,8 @@ function Studio({
   // the tab, their explicit choice (panelOverride) wins over the breakpoint default.
   const belowLg = useBelowLg();
   const [panelOverride, setPanelOverride] = useState<boolean | null>(null);
-  const panelOpen = panelOverride ?? !belowLg;
+  // Unfinished work also opens it, so the "keep going" offer is never hidden.
+  const panelOpen = panelOverride ?? (!belowLg || agent.interrupted);
 
   const idx = current ? versions.findIndex((v) => v.version_id === current.version_id) : -1;
   const canUndo = !agent.busy && idx >= 0 && idx < versions.length - 1;
@@ -184,11 +199,17 @@ function Studio({
     if (agent.send(instruction)) setInstruction("");
   }
 
-  // What's on the console: the game mid-build if Mishi has one, else the saved one.
-  const shown = agent.live ?? current;
+  // What's on the console: the game mid-build, else Mishi's unsaved work, else
+  // the saved game.
+  const shown = agent.live ?? agent.draftGame ?? current;
+  const unsaved = !agent.busy && !agent.live && agent.draftGame !== null;
   const lastAssistant = agent.messages.findLast((m) => m.role === "assistant");
   const title =
-    agent.live?.title || current?.title || getStarter(game.starterId)?.label || "New game";
+    agent.live?.title ||
+    agent.draftGame?.title ||
+    current?.title ||
+    getStarter(game.starterId)?.label ||
+    "New game";
   const suggestions = latestSuggestions(agent.messages) ?? current?.suggestions;
 
   return (
@@ -253,7 +274,9 @@ function Studio({
                 label={
                   agent.busy
                     ? activityLabel(lastAssistant)
-                    : "Hmm, that didn't work. Tell Mishi your idea again!"
+                    : agent.interrupted
+                      ? "Mishi didn't get to build your game yet."
+                      : "Hmm, that didn't work. Tell Mishi your idea again!"
                 }
                 code={agent.busy ? streamingCode(lastAssistant) : ""}
                 failed={!agent.busy}
@@ -269,6 +292,17 @@ function Studio({
                 ⚙️
               </span>
               {activityLabel(lastAssistant)}
+            </p>
+          )}
+          {unsaved && (
+            <p
+              role="status"
+              className="font-display pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-3.5 py-1.5 text-sm font-bold text-[#7a5200] shadow-lg sm:bottom-7"
+            >
+              <span className="mr-1.5" aria-hidden="true">
+                ⏸️
+              </span>
+              Not finished yet
             </p>
           )}
         </div>
@@ -290,20 +324,50 @@ function Studio({
         notice={agent.notice}
         suggestions={suggestions}
         onPickSuggestion={editInstruction}
+        unfinished={
+          agent.interrupted
+            ? {
+                hasGame: agent.draftGame !== null,
+                onResume: () => {
+                  if (agent.resume()) setInstruction("");
+                },
+                onDiscard: () => setConfirmDiscard(true),
+              }
+            : null
+        }
       />
 
       {revertTarget && (
         <ConfirmDialog
           title="Go back?"
           message={
-            droppedCount <= 1
+            (droppedCount <= 1
               ? "This will undo your newest change. You can't get it back."
-              : `This will remove your ${droppedCount} newest changes. You can't get them back.`
+              : `This will remove your ${droppedCount} newest changes. You can't get them back.`) +
+            (agent.draftGame ? " Mishi's unfinished work goes too." : "")
           }
           confirmLabel="Yes, go back"
           cancelLabel="Keep playing"
           onConfirm={confirmRevert}
           onCancel={() => setRevertTarget(null)}
+        />
+      )}
+
+      {confirmDiscard && (
+        <ConfirmDialog
+          title="Throw it away?"
+          message={
+            current
+              ? "Mishi's unfinished work will be gone, and your game goes back to how it was."
+              : "Mishi's unfinished game will be gone."
+          }
+          confirmLabel="Yes, throw it away"
+          cancelLabel="Keep it"
+          onConfirm={() => {
+            setConfirmDiscard(false);
+            void agent.discard();
+          }}
+          onCancel={() => setConfirmDiscard(false)}
         />
       )}
     </div>

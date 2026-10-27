@@ -5,6 +5,7 @@ import type { GameUIMessage } from "@/lib/agent/protocol";
 import { StudioChat } from "./StudioChat";
 import { RefineSuggestions } from "./RefineSuggestions";
 import { MicButton } from "./MicButton";
+import { ResumeCard } from "./ResumeCard";
 
 // Shown only if the model ever returns no ideas, so the chips are always useful.
 const FALLBACK_SUGGESTIONS = [
@@ -33,6 +34,7 @@ export function ChangePanel({
   notice,
   suggestions,
   onPickSuggestion,
+  unfinished,
 }: {
   messages: GameUIMessage[];
   versions: GameVersion[];
@@ -49,6 +51,12 @@ export function ChangePanel({
   notice: string;
   suggestions?: string[];
   onPickSuggestion: (suggestion: string) => void;
+  /** Mishi's last turn stopped before finishing: offer to keep going. */
+  unfinished?: {
+    hasGame: boolean;
+    onResume: () => void;
+    onDiscard: () => void;
+  } | null;
 }) {
   const shownSuggestions =
     suggestions && suggestions.length > 0 ? suggestions : FALLBACK_SUGGESTIONS;
@@ -65,7 +73,12 @@ export function ChangePanel({
           busy={busy}
           onTravel={onTravel}
         />
-        {!busy && hasGame && (
+        {!busy && unfinished && (
+          <div className="pt-2.5">
+            <ResumeCard {...unfinished} />
+          </div>
+        )}
+        {!busy && !unfinished && hasGame && (
           <div className="pt-2.5">
             <RefineSuggestions
               suggestions={shownSuggestions}

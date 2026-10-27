@@ -1,8 +1,16 @@
 "use client";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { saveChat, saveVersion, type GameVersion } from "@/lib/storage/repository";
+import {
+  deleteDraft,
+  saveChat,
+  saveDraft,
+  saveVersion,
+  type GameDraft,
+  type GameVersion,
+} from "@/lib/storage/repository";
+import { newId } from "@/lib/id";
 import { isPromptSafeForKids } from "@/lib/safety/kidSafety";
 import { networkErrorNotice } from "@/lib/net/networkErrorNotice";
 import { compactMessages, messageText, messagesForStorage } from "./compact";
@@ -18,11 +26,19 @@ export const AGENT_NOTICES = {
   unsafe: "Let's keep it friendly and fun!",
 } as const;
 
+/** What the child "says" when they ask Mishi to pick unfinished work back up. */
+export const RESUME_ASK = "Keep going!";
+
+/** How often the in-flight conversation is copied to the device (ms). */
+const SNAPSHOT_MS = 1000;
+
 export interface UseGameAgentOptions {
   gameId: string;
   starterId: string;
   /** The saved conversation (or one rebuilt from old versions). */
   initialMessages: GameUIMessage[];
+  /** Unfinished work found on the device for this game, if any. */
+  initialDraft: GameDraft | null;
   /** The version being played — what the agent changes. Null before the first build. */
   current: GameVersion | null;
   /** A turn produced and saved a new version. */
@@ -34,11 +50,16 @@ export interface UseGameAgentOptions {
  * to this app: sending the current game along, streaming the live game into the
  * preview, turning a finished turn into a saved GameVersion, persisting the
  * chat locally (there is no server database), and kid-friendly error notices.
+ *
+ * Work in progress is mirrored to the device as a draft while a turn runs, so a
+ * turn that never finishes — stopped, failed, timed out, or the tab closed —
+ * leaves Mishi's game and the conversation behind, ready to resume.
  */
 export function useGameAgent({
   gameId,
   starterId,
   initialMessages,
+  initialDraft,
   current,
   onVersion,
 }: UseGameAgentOptions) {
@@ -50,11 +71,39 @@ export function useGameAgent({
   // saved). useChat reports "ready" the moment the stream ends, but saving is
   // still running — a message sent in that gap would edit the OLD game.
   const [turnOpen, setTurnOpen] = useState(false);
+  // Unsaved work, in memory and on the device. Writes are queued so they land
+  // in order (a late "save" can never resurrect a deleted draft).
+  const [draft, setDraft] = useState<GameDraft | null>(initialDraft);
+  const draftRef = useRef<GameDraft | null>(initialDraft);
+  const draftWrites = useRef<Promise<void>>(Promise.resolve());
+  const lastSnapshot = useRef(0);
+  // True only while a response is streaming: a snapshot that fires after the
+  // turn ended must not overwrite what finishTurn decided to keep.
+  const streaming = useRef(false);
 
   function showLive(next: GameDataPart | null) {
     liveRef.current = next;
     setLive(next);
   }
+
+  const putDraft = useCallback(
+    (next: GameDraft | null) => {
+      draftRef.current = next;
+      setDraft(next);
+      draftWrites.current = draftWrites.current
+        .then(() => (next ? saveDraft(next) : deleteDraft(gameId)))
+        .catch((error) => console.warn("Couldn't keep Mishi's unfinished work:", error));
+    },
+    [gameId],
+  );
+
+  const patchDraft = useCallback(
+    (patch: Partial<GameDraft>) => {
+      const work = draftRef.current;
+      if (work) putDraft({ ...work, ...patch, updatedAt: Date.now() });
+    },
+    [putDraft],
+  );
 
   const chat = useChat<GameUIMessage>({
     id: gameId,
@@ -66,46 +115,74 @@ export function useGameAgent({
         // Parts can only move forward; ignore a stale revision.
         if (!liveRef.current || part.data.revision >= liveRef.current.revision) {
           showLive(part.data);
+          patchDraft({
+            game: { title: part.data.title, code: part.data.code },
+            edits: part.data.edits,
+          });
         }
       }
     },
-    onFinish: async ({ message, messages, isAbort, isError }) => {
+    onFinish: async (outcome) => {
       try {
-        await finishTurn({ message, messages, isAbort, isError });
+        await finishTurn(outcome);
       } finally {
         setTurnOpen(false);
       }
     },
     onError: (error) => {
+      streaming.current = false;
       showLive(null);
       setNotice(errorNotice(error));
       setTurnOpen(false);
     },
   });
 
+  const busy = turnOpen || chat.status === "submitted" || chat.status === "streaming";
+
+  // Copy the conversation to the device as it streams (at most once a second),
+  // so even a closed tab keeps Mishi's plan and steps.
+  useEffect(() => {
+    if (!busy || !draftRef.current) return;
+    const wait = Math.max(0, SNAPSHOT_MS - (Date.now() - lastSnapshot.current));
+    const timer = setTimeout(() => {
+      if (!streaming.current) return;
+      lastSnapshot.current = Date.now();
+      patchDraft({ messages: messagesForStorage(chat.messages) });
+    }, wait);
+    return () => clearTimeout(timer);
+  }, [busy, chat.messages, patchDraft]);
+
   async function finishTurn({
     message,
     messages,
     isAbort,
     isError,
+    finishReason,
   }: {
     message: GameUIMessage;
     messages: GameUIMessage[];
     isAbort: boolean;
     isError: boolean;
+    finishReason?: string;
   }) {
-    const built = liveRef.current;
+    streaming.current = false;
+    const work = draftRef.current;
+    const built = liveRef.current ?? work?.game ?? null;
     const result = resultOf(message);
+    // Stopped, failed, or cut off (the server always ends a turn with a finish
+    // reason; a stream that just stops — e.g. a timeout — has none).
+    const interrupted = isAbort || isError || finishReason === undefined;
     let saved = false;
-    if (result && built && !isAbort && !isError) {
+    if (result && built && !interrupted) {
       const at = messages.findIndex((m) => m.id === message.id);
-      const asked = at > 0 ? messageText(messages[at - 1]) : "";
+      // The child's words that started this work — not "Keep going!".
+      const asked = work?.prompt ?? (at > 0 ? messageText(messages[at - 1]) : "");
       const base = current;
       const ts = Date.now();
       const version: GameVersion = {
         version_id: `${gameId}_${ts}`,
         game_id: gameId,
-        title: result.title || base?.title || "My game",
+        title: result.title || built.title || base?.title || "My game",
         code: built.code,
         prompt: base?.prompt ?? asked,
         starterId,
@@ -120,19 +197,18 @@ export function useGameAgent({
       saved = true;
       onVersion(version);
     }
-    // Cleared only after the new version is in place, so the preview never
-    // flashes back to the old game in between.
-    showLive(null);
     // A turn that ended badly may have announced a change that was never
     // saved: take that summary back out of the conversation.
-    const failed = isAbort || isError;
-    const kept = messagesForStorage(messages, failed && !saved ? message.id : undefined);
-    // A conversation is only kept once its game exists (a first build that
-    // never finished leaves nothing to come back to).
+    const kept = messagesForStorage(messages, interrupted && !saved ? message.id : undefined);
+    // Keep the work while anything is unsaved: an interrupted turn, a game
+    // Mishi built but hasn't saved, or a new game still being talked through.
+    const keep = !saved && work !== null && (interrupted || work.game !== null || !current);
+    putDraft(keep ? { ...work, messages: kept, interrupted, updatedAt: Date.now() } : null);
+    // Cleared only after the new version (or the kept draft) is in place, so the
+    // preview never flashes back to an older game in between.
+    showLive(null);
     if (saved || current) await saveChat(gameId, kept);
   }
-
-  const busy = turnOpen || chat.status === "submitted" || chat.status === "streaming";
 
   /** Send the child's words to Mishi. Returns false if it wasn't sent. */
   function send(text: string): boolean {
@@ -147,19 +223,54 @@ export function useGameAgent({
     setNotice("");
     chat.clearError();
     // The game travels with each request (not in the chat history) so Mishi
-    // always edits exactly what the child is playing right now.
+    // always edits exactly what the child is playing right now — or, after an
+    // interruption, Mishi's unfinished work, which it picks back up.
+    const work = draftRef.current;
     const body: TurnBody = {
       starterId,
-      game: current ? { title: current.title, code: current.code } : null,
+      game: work?.game ?? (current ? { title: current.title, code: current.code } : null),
+      resume: work?.game ? { isNew: work.isNew, edits: work.edits } : undefined,
     };
+    const ask: GameUIMessage = { id: newId(), role: "user", parts: [{ type: "text", text: trimmed }] };
+    putDraft({
+      game_id: gameId,
+      starterId,
+      prompt: trimmed,
+      isNew: current === null,
+      game: null,
+      edits: [],
+      ...work,
+      messages: messagesForStorage([...chat.messages, ask]),
+      interrupted: true,
+      updatedAt: Date.now(),
+    });
+    showLive(null);
+    streaming.current = true;
     setTurnOpen(true);
-    void chat.sendMessage({ text: trimmed }, { body });
+    void chat.sendMessage(ask, { body });
     return true;
   }
 
-  /** Replace the conversation (after going back to an earlier version). */
+  /** Pick unfinished work back up — or, if Mishi stopped before building
+   *  anything, ask again. */
+  function resume(): boolean {
+    const work = draftRef.current;
+    if (!work) return false;
+    return send(work.game ? RESUME_ASK : work.prompt);
+  }
+
+  /** Throw away Mishi's unfinished work and go back to the last saved game. */
+  async function discard() {
+    if (busy || !draftRef.current) return;
+    putDraft(null);
+    if (current) await saveChat(gameId, messagesForStorage(chat.messages));
+  }
+
+  /** Replace the conversation (after going back to an earlier version). Any
+   *  unfinished work is dropped with it. */
   async function rewind(messages: GameUIMessage[]) {
     chat.setMessages(messages);
+    putDraft(null);
     await saveChat(gameId, messagesForStorage(messages));
   }
 
@@ -168,9 +279,15 @@ export function useGameAgent({
     status: chat.status,
     busy,
     live,
+    /** Mishi's unsaved game, if any (shown on the console between turns). */
+    draftGame: draft?.game ?? null,
+    /** A turn stopped before finishing and can be resumed. */
+    interrupted: !busy && draft?.interrupted === true,
     notice,
     clearNotice: () => setNotice(""),
     send,
+    resume,
+    discard,
     stop: () => void chat.stop(),
     rewind,
   };
