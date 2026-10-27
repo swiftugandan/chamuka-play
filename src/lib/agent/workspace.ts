@@ -3,6 +3,12 @@ import type { AppliedEdit } from "@/lib/ai/edits";
 import type { EditGameOutput, ReadGameOutput, WriteGameOutput } from "./protocol";
 import { MAX_GAME_BYTES } from "./protocol";
 
+/** Unfinished work handed back to a new turn (see `agentRequestSchema.resume`). */
+export interface WorkspaceResume {
+  isNew: boolean;
+  edits: AppliedEdit[];
+}
+
 /** Longest `find` echoed back in a failure report (the model already has it). */
 const FAILURE_SNIPPET = 80;
 
@@ -21,24 +27,30 @@ export class GameWorkspace {
   private readonly startCode: string;
   private readonly turnEdits: AppliedEdit[] = [];
 
-  constructor(initial: { title: string; code: string } | null) {
+  /** Unfinished work from an interrupted turn that this turn picks up. */
+  private readonly resumed: WorkspaceResume | null;
+
+  constructor(initial: { title: string; code: string } | null, resume?: WorkspaceResume) {
     this.title = initial?.title ?? "";
     this.code = initial?.code ?? "";
     this.startCode = this.code;
+    this.resumed = resume && this.code ? resume : null;
+    if (this.resumed) this.turnEdits.push(...this.resumed.edits);
   }
 
-  /** Whether this turn began with no game (a brand-new creation). */
+  /** Whether this work is a brand-new creation (nothing saved before it). */
   get isNew(): boolean {
-    return this.startCode === "";
+    return this.resumed ? this.resumed.isNew : this.startCode === "";
   }
 
   get hasGame(): boolean {
     return this.code !== "";
   }
 
-  /** Whether the game differs from how the turn started. */
+  /** Whether there is unsaved work: the game differs from how the turn started,
+   *  or the turn resumed work that was never saved. */
   get changed(): boolean {
-    return this.code !== this.startCode;
+    return this.resumed !== null || this.code !== this.startCode;
   }
 
   get lineCount(): number {

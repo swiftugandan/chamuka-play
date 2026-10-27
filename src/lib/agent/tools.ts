@@ -40,7 +40,12 @@ export function createGameTools(
   const screenshots = new Map<string, string>();
 
   const publishGame = () =>
-    hooks.onGame({ title: workspace.title, code: workspace.code, revision: workspace.revision });
+    hooks.onGame({
+      title: workspace.title,
+      code: workspace.code,
+      revision: workspace.revision,
+      edits: workspace.edits,
+    });
 
   return {
     makePlan: tool({

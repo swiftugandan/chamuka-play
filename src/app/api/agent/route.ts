@@ -39,6 +39,7 @@ export async function POST(req: Request) {
         messages,
         starterId: parsed.data.starterId,
         game: parsed.data.game,
+        resume: parsed.data.resume,
         writer,
         abortSignal: req.signal,
       }),

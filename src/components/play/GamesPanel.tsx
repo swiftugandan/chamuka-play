@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
-import type { GameVersion } from "@/lib/storage/repository";
+import type { GameSummary } from "@/lib/storage/repository";
 import { starterTheme } from "./starterTheme";
 import { Mascot } from "./Mascot";
 
@@ -11,8 +11,8 @@ export function GamesPanel({
   onOpen,
   onDelete,
 }: {
-  games: GameVersion[];
-  onOpen: (v: GameVersion) => void;
+  games: GameSummary[];
+  onOpen: (g: GameSummary) => void;
   onDelete: (gameId: string) => void;
 }) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -89,8 +89,15 @@ export function GamesPanel({
                     {t.emoji}
                   </span>
                   <span className="min-w-0">
-                    <span className="font-display block truncate text-sm font-semibold">
-                      {g.title}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="font-display truncate text-sm font-semibold">
+                        {g.title}
+                      </span>
+                      {g.unfinished && (
+                        <span className="shrink-0 rounded-full bg-sun/25 px-1.5 py-px text-[10px] font-extrabold text-[#7a5200]">
+                          Not finished
+                        </span>
+                      )}
                     </span>
                     <span className="block truncate text-[11px] font-bold text-ink-soft">
                       {g.prompt}

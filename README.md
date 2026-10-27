@@ -20,6 +20,9 @@ self-hostable.
    idea could mean two things.
 5. Every version and the whole chat are saved locally (IndexedDB). Your games
    live under "My games"; tap any earlier change to go back to it.
+6. Nothing is lost if Mishi gets interrupted — you press stop, close the tab, or
+   something breaks. The unfinished game is kept on your device (marked "Not
+   finished"), and Mishi can **keep going** from where it stopped.
 
 No signup, no accounts, no telemetry. Games persist in your browser.
 

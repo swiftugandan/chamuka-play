@@ -149,11 +149,14 @@ export interface FinishOutput {
 
 // ── Data parts ────────────────────────────────────────────────────────────────
 
-/** Transient: the live game after each write/edit (drives the preview). */
+/** Transient: the live game after each write/edit (drives the preview, and is
+ *  kept on the device as unfinished work until the turn is saved). */
 export interface GameDataPart {
   title: string;
   code: string;
   revision: number;
+  /** The edits made so far in this piece of work (for the change story). */
+  edits: AppliedEdit[];
 }
 
 /** Persistent: what this turn produced. The code itself is NOT stored here —
@@ -187,6 +190,15 @@ export type GameUIMessagePart = GameUIMessage["parts"][number];
 
 // ── Request ───────────────────────────────────────────────────────────────────
 
+/** Most edits carried over when resuming unfinished work (several attempts). */
+export const MAX_RESUMED_EDITS = 60;
+
+const appliedEditSchema = z.object({
+  find: z.string().max(MAX_GAME_BYTES),
+  replace: z.string().max(MAX_GAME_BYTES),
+  because: z.string().max(200).optional(),
+});
+
 export const agentRequestSchema = z.object({
   /** Chat history (already compacted by the client). */
   messages: z.array(z.unknown()).min(1).max(60),
@@ -198,6 +210,20 @@ export const agentRequestSchema = z.object({
       code: z.string().max(MAX_GAME_BYTES),
     })
     .nullable(),
+  /**
+   * Set when `game` is Mishi's unfinished work from an interrupted turn (kept on
+   * the child's device), not a saved version. The agent picks up where it left off.
+   */
+  resume: z
+    .object({
+      /** The work is a brand-new game (nothing saved yet). */
+      isNew: z.boolean(),
+      /** Edits already made, so the saved change story is complete. */
+      edits: z.array(appliedEditSchema).max(MAX_RESUMED_EDITS),
+    })
+    .optional(),
+}).refine((body) => !body.resume || body.game !== null, {
+  message: "resume needs the unfinished game",
 });
 
 export type AgentRequestBody = z.infer<typeof agentRequestSchema>;

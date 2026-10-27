@@ -29,9 +29,33 @@ export interface ChatRecord {
   updatedAt: number;
 }
 
+/**
+ * Mishi's work that isn't a saved version yet (one row per game). Written while
+ * a turn runs and kept if it never finishes — a crash, a closed tab, a timeout,
+ * or the child pressing stop — so the work can be picked back up instead of lost.
+ */
+export interface GameDraft {
+  game_id: string;
+  starterId: string;
+  /** The child's words that started this piece of work. */
+  prompt: string;
+  /** True when the work is a brand-new game (no saved version when it began). */
+  isNew: boolean;
+  /** The newest game Mishi had built, or null if it stopped before any code. */
+  game: { title: string; code: string } | null;
+  /** The edits made so far, for the change story once the work is saved. */
+  edits: AppliedEdit[];
+  /** The conversation, including the unfinished turn (storage-compacted). */
+  messages: GameUIMessage[];
+  /** A turn stopped before finishing (vs. Mishi waiting on the child's answer). */
+  interrupted: boolean;
+  updatedAt: number;
+}
+
 export class PlayDatabase extends Dexie {
   versions!: Table<GameVersion, string>;
   chats!: Table<ChatRecord, string>;
+  drafts!: Table<GameDraft, string>;
   constructor() {
     super("ChamukaPlayDatabase");
     this.version(1).stores({
@@ -42,6 +66,12 @@ export class PlayDatabase extends Dexie {
     this.version(2).stores({
       versions: "version_id, game_id, timestamp",
       chats: "game_id",
+    });
+    // v3 adds unfinished work per game (additive; nothing to migrate).
+    this.version(3).stores({
+      versions: "version_id, game_id, timestamp",
+      chats: "game_id",
+      drafts: "game_id",
     });
   }
 }

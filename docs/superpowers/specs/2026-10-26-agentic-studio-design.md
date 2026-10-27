@@ -83,4 +83,6 @@ history window 24 messages · turn deadline 240 s (then the agent lands the plan
   rule.
 - Multi-file games — the single-file artifact is kept on purpose (iframe,
   versions, kid-readable code).
-- Resumable streams: closing the tab mid-turn loses that turn.
+- Resumable streams. Closing the tab mid-turn still ends that turn on the server,
+  but since 2026-10-27 its work is kept on the device and can be resumed
+  ("Keep going!") — see "Unfinished work" in CLAUDE.md.

@@ -16,7 +16,7 @@ import {
   type ResultDataPart,
 } from "./protocol";
 import { createGameTools } from "./tools";
-import { GameWorkspace } from "./workspace";
+import { GameWorkspace, type WorkspaceResume } from "./workspace";
 import { createPlaytester, type Playtester } from "./playtest";
 import { createMockAgentModel } from "./mockModel";
 
@@ -28,6 +28,8 @@ export interface GameTurnInput {
   messages: GameUIMessage[];
   starterId: string;
   game: { title: string; code: string } | null;
+  /** Set when `game` is unfinished work from an interrupted turn. */
+  resume?: WorkspaceResume;
   writer: UIMessageStreamWriter<GameUIMessage>;
   abortSignal?: AbortSignal;
 }
@@ -39,7 +41,7 @@ export interface GameTurnInput {
  * stream's error chunk ends it instead).
  */
 export async function runGameTurn(input: GameTurnInput): Promise<void> {
-  const workspace = new GameWorkspace(input.game);
+  const workspace = new GameWorkspace(input.game, input.resume);
   const playtester: Playtester = createPlaytester();
   let resultSent = false;
   const deadline = Date.now() + TURN_BUDGET_MS;
@@ -64,7 +66,7 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
       { role: "system", content: AGENT_INSTRUCTIONS, providerOptions: CACHE_THIS },
       {
         role: "system",
-        content: turnContext({ starterBrief: brief, game: input.game }),
+        content: turnContext({ starterBrief: brief, game: input.game, resume: input.resume }),
         providerOptions: CACHE_THIS,
       },
     ],
@@ -112,7 +114,9 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
   } finally {
     await playtester.dispose();
   }
-  input.writer.write({ type: "finish" });
+  // The finish reason marks a turn that ran to its end; a stream that stops
+  // without it (e.g. the function hit its time limit) is unfinished work.
+  input.writer.write({ type: "finish", finishReason: "stop" });
 }
 
 function fallbackResult(workspace: GameWorkspace): ResultDataPart {

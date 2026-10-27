@@ -88,6 +88,26 @@ export function nextStep(prompt: LanguageModelV3Prompt, starterId: string): Step
     return script[Math.min(taken, script.length - 1)];
   }
 
+  // Picking up unfinished work: check it still plays, then save it.
+  if (/interrupted before the work was saved/.test(system)) {
+    const script: Step[] = [
+      {
+        text: "Picking up where I left off! 🔧",
+        call: { toolName: "playtest", input: { checking: "Does it all still work?", tap: true } },
+      },
+      {
+        call: {
+          toolName: "finish",
+          input: {
+            summary: "All done — I finished what I started! ✨",
+            suggestions: MOCK_NEW_GAME_SUGGESTIONS,
+          },
+        },
+      },
+    ];
+    return script[Math.min(taken, script.length - 1)];
+  }
+
   const current = /<current-game>\n([\s\S]*)\n<\/current-game>/.exec(system)?.[1] ?? "";
   const change = mockChangeEdits(current, childSaid);
   if (change.edits.length === 0) {

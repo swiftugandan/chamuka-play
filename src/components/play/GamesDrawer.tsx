@@ -1,6 +1,6 @@
 "use client";
 import { Gamepad2, X } from "lucide-react";
-import type { GameVersion } from "@/lib/storage/repository";
+import type { GameSummary } from "@/lib/storage/repository";
 import { GamesPanel } from "./GamesPanel";
 import { SideDrawer } from "./SideDrawer";
 
@@ -14,10 +14,10 @@ export function GamesDrawer({
   onDelete,
 }: {
   open: boolean;
-  games: GameVersion[];
+  games: GameSummary[];
   onClose: () => void;
   onToggle: () => void;
-  onOpen: (v: GameVersion) => void;
+  onOpen: (g: GameSummary) => void;
   onDelete: (gameId: string) => void;
 }) {
   return (

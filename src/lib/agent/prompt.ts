@@ -49,13 +49,23 @@ Above all: make it genuinely fun, correct, fast, beautiful, and easy to change l
 export function turnContext(input: {
   starterBrief: string;
   game: { title: string; code: string } | null;
+  /** The game is unfinished work from an interrupted turn, not a saved version. */
+  resume?: { isNew: boolean };
 }): string {
   if (!input.game || !input.game.code) {
     return `# This turn
 There is no game yet — the child is starting a new one. ${input.starterBrief}`;
   }
+  const opening = input.resume
+    ? `${
+        input.resume.isNew
+          ? `The child is making a new game. Kind of game: ${input.starterBrief}`
+          : `The child is changing their game "${input.game.title}". Original kind of game: ${input.starterBrief}`
+      }
+Your last turn on this was interrupted before the work was saved. The game below is the UNFINISHED work you had built so far — it already includes the changes you made. Don't start over: check it (playtest), finish whatever is still missing from what the child asked for, fix anything broken, then call finish so it gets saved. The child's newest message may add something.`
+    : `The child is changing their game "${input.game.title}". Original kind of game: ${input.starterBrief}`;
   return `# This turn
-The child is changing their game "${input.game.title}". Original kind of game: ${input.starterBrief}
+${opening}
 This is the current game, exactly as it is now (copy "find" snippets from here):
 <current-game>
 ${input.game.code}

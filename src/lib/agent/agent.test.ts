@@ -18,6 +18,7 @@ vi.mock("./mockModel", async (importOriginal) => {
 async function turn(input: {
   text: string;
   game: { title: string; code: string } | null;
+  resume?: { isNew: boolean; edits: { find: string; replace: string }[] };
 }) {
   const live: GameDataPart[] = [];
   const stream = createUIMessageStream<GameUIMessage>({
@@ -26,6 +27,7 @@ async function turn(input: {
         messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: input.text }] }],
         starterId: "clicker",
         game: input.game,
+        resume: input.resume,
         writer,
       }),
   });
@@ -121,5 +123,17 @@ describe("runGameTurn (offline model, end to end)", () => {
     let message: GameUIMessage | undefined;
     for await (const m of readUIMessageStream<GameUIMessage>({ stream })) message = m;
     expect(message!.parts.some((p) => p.type === "data-result")).toBe(true);
+  });
+
+  it("picks up unfinished work and saves it, keeping the edits made before", async () => {
+    const earlier = { find: "speed = 5", replace: "speed = 9" };
+    const { result } = await turn({
+      text: "Keep going!",
+      game: { title: "Stars", code: "<!doctype html><html><body>speed = 9</body></html>" },
+      resume: { isNew: true, edits: [earlier] },
+    });
+    // Nothing new was written this time, yet the kept work is saved — as the
+    // brand-new game it is, with the story from before the interruption.
+    expect(result).toMatchObject({ kind: "created", title: "Stars", edits: [earlier] });
   });
 });
