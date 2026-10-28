@@ -6,6 +6,7 @@ import type { SharedGame } from "@/lib/share/gameFile";
 import { decodeGameSnapshot, gameIdFromPath, snapshotFromHash } from "@/lib/share/gameLink";
 import { Mascot } from "@/components/play/Mascot";
 import { PlayerBar } from "./PlayerBar";
+import { GameFrame } from "@/components/game/GameFrame";
 import { useGameAppIdentity } from "./useGameAppIdentity";
 
 type Loaded =
@@ -54,10 +55,9 @@ export function GamePlayer() {
       {/* React hoists this into <head>, so Next's metadata can't reset it. */}
       <title>{loaded.game.title}</title>
       <PlayerBar title={loaded.game.title} />
-      <iframe
+      <GameFrame
         title={loaded.game.title}
-        sandbox="allow-scripts"
-        srcDoc={loaded.game.code}
+        code={loaded.game.code}
         className="min-h-0 w-full flex-1 border-0 bg-black"
       />
     </main>

@@ -118,3 +118,20 @@ describe("messagesForStorage", () => {
     expect(messagesForStorage(msgs)[1].parts.map((p) => p.type)).toEqual(["text", "data-result"]);
   });
 });
+
+describe("starter kit outputs", () => {
+  it("are compacted like readGame: the whole kit never rides in history", () => {
+    const kitStep = {
+      type: "tool-startFromKit",
+      toolCallId: "k1",
+      state: "output-available",
+      input: { kit: "phaser-arcade" },
+      output: { ok: true, kit: "phaser-arcade", text: "1| <!DOCTYPE html>\n2| ...", lines: 600, map: "m" },
+    } as GameUIMessage["parts"][number];
+    const out = compactMessages([user("u1", "a"), assistant("a1", [kitStep]), user("u2", "b")]);
+    const part = out[1].parts[0] as { output: { text: string; kit: string } };
+    expect(part.output.text).not.toContain("DOCTYPE");
+    expect(part.output.kit).toBe("phaser-arcade");
+  });
+});
+

@@ -2,6 +2,7 @@ import { applyEdits } from "@/lib/ai/applyEdits";
 import type { AppliedEdit } from "@/lib/ai/edits";
 import type { EditGameOutput, ReadGameOutput, WriteGameOutput } from "./protocol";
 import { MAX_GAME_BYTES } from "./protocol";
+import { GAME_LIBRARIES, disallowedResources, libraryTag } from "@/lib/games/libraries";
 
 /** Unfinished work handed back to a new turn (see `agentRequestSchema.resume`). */
 export interface WorkspaceResume {
@@ -67,10 +68,12 @@ export class GameWorkspace {
     return this.rewritten;
   }
 
-  /** The edits to show the child for this turn. Empty after a rewrite: a
-   *  replaced file has no meaningful "before → after" snippet. */
+  /** The edits to show the child for this turn. Empty for a new game and after
+   *  a rewrite: neither has a meaningful "before → after" snippet. */
   get edits(): AppliedEdit[] {
-    return this.rewritten ? [] : [...this.turnEdits];
+    // A brand-new game has no "before" — edits made on top of a starter kit are
+    // how it was built, not changes the child would recognise.
+    return this.rewritten || this.isNew ? [] : [...this.turnEdits];
   }
 
   write(title: string, html: string): WriteGameOutput {
@@ -88,6 +91,8 @@ export class GameWorkspace {
         message: "That doesn't look like a complete HTML file (missing <html> or </html>). Write the whole file.",
       };
     }
+    const blocked = newlyBlocked(this.code, html);
+    if (blocked) return { ok: false, lines: this.lineCount, message: blocked };
     this.title = title.trim() || this.title;
     this.code = html;
     this.revision++;
@@ -108,6 +113,14 @@ export class GameWorkspace {
       hint: f.reason === "not-found" ? nearestLine(this.code, f.edit.find) : undefined,
     }));
 
+    const blocked = newlyBlocked(this.code, result.code);
+    if (blocked) {
+      return {
+        applied: 0,
+        failed: [{ find: "(all edits)", reason: blocked }],
+        lines: this.lineCount,
+      };
+    }
     if (byteLength(result.code) > MAX_GAME_BYTES) {
       return {
         applied: 0,
@@ -136,6 +149,21 @@ export class GameWorkspace {
       .join("\n");
     return { totalLines: total, text };
   }
+}
+
+/**
+ * Games may only load the catalog's libraries (they're pinned, integrity-checked,
+ * allowed by the playtest VM and the /play CSP, and bundled for offline play).
+ * Anything a change newly adds outside it is refused, with the exact allowed
+ * tags so the agent can fix it in one go. Resources a game already had are left
+ * alone, so older games stay editable.
+ */
+function newlyBlocked(before: string, after: string): string | null {
+  const had = new Set(disallowedResources(before).map((r) => r.url));
+  const added = disallowedResources(after).filter((r) => !had.has(r.url));
+  if (added.length === 0) return null;
+  const allowed = GAME_LIBRARIES.map((lib) => libraryTag(lib.id)).join("\n");
+  return `Not allowed: ${added.map((r) => r.url).join(", ")}. A game may only load these (copy the tag exactly, nothing else from the network):\n${allowed}`;
 }
 
 function byteLength(s: string): number {

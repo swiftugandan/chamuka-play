@@ -19,6 +19,7 @@ import {
 import type { GameUIMessage } from "@/lib/agent/protocol";
 import { getStarter } from "@/lib/games/registry";
 import { BuildStage } from "./BuildStage";
+import { GameFrame } from "@/components/game/GameFrame";
 import { ChangeDrawer } from "./ChangeDrawer";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ShareDialog } from "./ShareDialog";
@@ -285,10 +286,9 @@ function Studio({
 
         <div className="console-shell rounded-toy-xl relative flex min-h-0 flex-1 p-2.5 sm:p-3">
           {shown ? (
-            <iframe
+            <GameFrame
               title={title}
-              sandbox="allow-scripts"
-              srcDoc={shown.code}
+              code={shown.code}
               className="console-screen min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl"
             />
           ) : (
@@ -425,6 +425,7 @@ export function activityLabel(message: GameUIMessage | undefined): string {
   switch (step?.type) {
     case "tool-makePlan":
       return "Mishi is planning your game…";
+    case "tool-startFromKit":
     case "tool-writeGame":
       return "Mishi is building your game…";
     case "tool-editGame":

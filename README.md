@@ -11,7 +11,9 @@ self-hostable.
 
 1. Pick a kind of game — fun (clicker, catch, maze, quiz, drawing, memory) or
    learning (math, spelling, typing) — and describe your idea.
-2. **Mishi, an AI agent, builds it while you watch:** it shares a plan, writes the
+2. **Mishi, an AI agent, builds it while you watch** — starting from a polished,
+   tested starter kit built on real game libraries (Phaser for action games, GSAP
+   for quiz and card games, ZzFX sound, confetti, friendly fonts): it shares a plan, writes the
    game (you can peek at the real code as it appears), *plays it in a real
    browser*, finds and fixes its own bugs, and hands it over.
 3. Play it right away (it runs in a sandboxed iframe — keyboard + touch).

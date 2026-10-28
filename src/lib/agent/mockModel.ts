@@ -5,7 +5,13 @@ import type {
   LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
 } from "@ai-sdk/provider";
-import { buildMockGame, mockChangeEdits, MOCK_NEW_GAME_SUGGESTIONS } from "@/lib/ai/mockGame";
+import {
+  mockChangeEdits,
+  mockKitEdits,
+  mockTitle,
+  MOCK_NEW_GAME_SUGGESTIONS,
+} from "@/lib/ai/mockGame";
+import { getStarter } from "@/lib/games/registry";
 
 type ToolCall = { toolName: string; input: unknown };
 type Step = { text?: string; call?: ToolCall };
@@ -53,33 +59,32 @@ export function nextStep(prompt: LanguageModelV3Prompt, starterId: string): Step
 
   const isNew = /There is no game yet/.test(system);
   if (isNew) {
-    const game = buildMockGame({ starterId, prompt: childSaid });
+    const title = mockTitle({ starterId, prompt: childSaid });
+    const kit = getStarter(starterId)?.kit ?? "phaser-arcade";
     const script: Step[] = [
       {
         text: "Ooh, fun idea! Let me plan it out. ✏️",
         call: {
           toolName: "makePlan",
           input: {
-            pitch: `${game.title} — catch the twinkly stars before time runs out!`,
-            steps: ["Draw a starry sky", "Make stars fall from the top", "Add a score and a timer"],
+            pitch: `${title} — let's make it awesome!`,
+            steps: ["Get out the building blocks", "Make it your game", "Test it for real"],
           },
         },
       },
-      {
-        text: "Building it now! 🔨",
-        call: { toolName: "writeGame", input: { title: game.title, html: game.code } },
-      },
+      { text: "Building it now! 🔨", call: { toolName: "startFromKit", input: { kit } } },
+      { call: { toolName: "editGame", input: { edits: mockKitEdits(kit, title), title } } },
       {
         call: {
           toolName: "playtest",
-          input: { checking: "Do the stars fall and pop when tapped?", tap: true },
+          input: { checking: "Does it start and play?", keys: ["Space", "ArrowLeft", "ArrowRight"], tap: true },
         },
       },
       {
         call: {
           toolName: "finish",
           input: {
-            summary: "Here's your game! Tap the stars to pop them before the timer runs out. ⭐",
+            summary: "Here's your game! Have a go — then tell me what to change. ⭐",
             suggestions: MOCK_NEW_GAME_SUGGESTIONS,
           },
         },

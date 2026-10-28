@@ -149,3 +149,37 @@ describe("GameWorkspace resuming after a rewrite", () => {
     expect(ws.isNew).toBe(false);
   });
 });
+
+describe("GameWorkspace — libraries", () => {
+  const PHASER = '<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>';
+  const page = (head: string) => `<!DOCTYPE html><html><head>${head}</head><body></body></html>`;
+
+  it("lets a game use catalog libraries", () => {
+    const ws = new GameWorkspace(null);
+    expect(ws.write("Stars", page(PHASER)).ok).toBe(true);
+  });
+
+  it("refuses a new game that loads anything else, and says what is allowed", () => {
+    const ws = new GameWorkspace(null);
+    const out = ws.write("Stars", page('<script src="https://unpkg.com/phaser"></script>'));
+    expect(out.ok).toBe(false);
+    expect(out.message).toContain("Not allowed: https://unpkg.com/phaser");
+    expect(out.message).toContain(PHASER);
+    expect(ws.hasGame).toBe(false);
+  });
+
+  it("refuses an edit that adds an outside library, and changes nothing", () => {
+    const ws = new GameWorkspace({ title: "Stars", code: page("") });
+    const out = ws.edit([{ find: "<head>", replace: '<head><script src="https://x.example/a.js"></script>' }]);
+    expect(out.applied).toBe(0);
+    expect(out.failed[0].reason).toContain("Not allowed");
+    expect(ws.changed).toBe(false);
+  });
+
+  it("keeps older games editable even if they already load something else", () => {
+    const old = page('<script src="https://cdn.jsdelivr.net/npm/old-lib@1.0.0/x.js"></script><title>a</title>');
+    const ws = new GameWorkspace({ title: "Stars", code: old });
+    expect(ws.edit([{ find: "<title>a</title>", replace: "<title>b</title>" }]).applied).toBe(1);
+  });
+});
+

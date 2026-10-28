@@ -57,11 +57,21 @@ describe("runGameTurn (offline model, end to end)", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("plans, builds, playtests and saves a brand-new game", async () => {
+  it("plans, builds from a starter kit, playtests and saves a brand-new game", async () => {
     const { message, live, result } = await turn({ text: "catch the stars", game: null });
 
     const tools = message.parts.filter((p) => p.type.startsWith("tool-")).map((p) => p.type);
-    expect(tools).toEqual(["tool-makePlan", "tool-writeGame", "tool-playtest", "tool-finish"]);
+    expect(tools).toEqual([
+      "tool-makePlan",
+      "tool-startFromKit",
+      "tool-editGame",
+      "tool-playtest",
+      "tool-finish",
+    ]);
+    expect(message.parts.find((p) => p.type === "tool-startFromKit")).toMatchObject({
+      input: { kit: "phaser-arcade" },
+      output: { ok: true, kit: "phaser-arcade" },
+    });
 
     const playtest = message.parts.find((p) => p.type === "tool-playtest");
     expect(playtest).toMatchObject({
@@ -69,8 +79,10 @@ describe("runGameTurn (offline model, end to end)", () => {
       output: { engine: "static", ok: true, errors: [] },
     });
 
+    // The kit's demo never shows: the preview starts with the child's game.
     expect(live).toHaveLength(1);
-    expect(live[0].code).toMatch(/<html/);
+    expect(live[0].code).toContain('const GAME_TITLE = "Clicker Game: catch the stars";');
+    expect(live[0].code).toContain("phaser@3.90.0");
     expect(result).toMatchObject({ kind: "created", edits: [] });
     expect(result!.title).toMatch(/catch the stars/);
     expect(result!.suggestions.length).toBeGreaterThan(0);
@@ -86,8 +98,14 @@ describe("runGameTurn (offline model, end to end)", () => {
     const tools = message.parts.filter((p) => p.type.startsWith("tool-")).map((p) => p.type);
     expect(tools).toEqual(["tool-editGame", "tool-playtest", "tool-finish"]);
     expect(result).toMatchObject({ kind: "changed", summary: "I made the stars fall faster! ⚡" });
-    expect(result!.edits.some((e) => e.replace === "fall=3.6")).toBe(true);
-    expect(live.at(-1)!.code).toContain("fall=3.6");
+    // A one-line change to a named setting, as the craft rules intend.
+    expect(result!.edits).toContainEqual(
+      expect.objectContaining({
+        find: "const FALL_SPEED_START = 230;",
+        replace: "const FALL_SPEED_START = 350;",
+      }),
+    );
+    expect(live.at(-1)!.code).toContain("const FALL_SPEED_START = 350;");
   });
 
   it("doesn't save a version when the turn changed nothing", async () => {
@@ -130,10 +148,19 @@ describe("runGameTurn (offline model, end to end)", () => {
     const { result } = await turn({
       text: "Keep going!",
       game: { title: "Stars", code: "<!doctype html><html><body>speed = 9</body></html>" },
-      resume: { isNew: true, edits: [earlier] },
+      resume: { isNew: false, edits: [earlier] },
     });
-    // Nothing new was written this time, yet the kept work is saved — as the
-    // brand-new game it is, with the story from before the interruption.
-    expect(result).toMatchObject({ kind: "created", title: "Stars", edits: [earlier] });
+    // Nothing new was written this time, yet the kept change is saved, with the
+    // story from before the interruption.
+    expect(result).toMatchObject({ kind: "changed", title: "Stars", edits: [earlier] });
+  });
+
+  it("saves an interrupted brand-new game as a new game", async () => {
+    const { result } = await turn({
+      text: "Keep going!",
+      game: { title: "Stars", code: "<!doctype html><html><body>speed = 9</body></html>" },
+      resume: { isNew: true, edits: [] },
+    });
+    expect(result).toMatchObject({ kind: "created", title: "Stars", edits: [] });
   });
 });

@@ -76,6 +76,18 @@ export const editGameInput = z.object({
     .describe("Only when the change is about the game's name."),
 });
 
+/** The starter kits the agent can build on (src/lib/games/kits.ts). */
+export const STARTER_KIT_IDS = ["phaser-arcade", "dom-quiz"] as const;
+export type StarterKitId = (typeof STARTER_KIT_IDS)[number];
+
+export const startFromKitInput = z.object({
+  kit: z
+    .enum(STARTER_KIT_IDS)
+    .describe(
+      "phaser-arcade: anything that moves (catch, dodge, tap, maze, platformer, runner). dom-quiz: questions, words and cards (quiz, math, spelling, typing, memory).",
+    ),
+});
+
 export const readGameInput = z.object({
   from: z.number().int().min(1).optional().describe("First line (1-based)."),
   to: z.number().int().min(1).optional().describe("Last line (inclusive)."),
@@ -121,6 +133,17 @@ export interface EditGameOutput {
   applied: number;
   failed: { find: string; reason: string; hint?: string }[];
   lines: number;
+}
+
+export interface StartFromKitOutput {
+  ok: boolean;
+  kit: StarterKitId;
+  /** The kit, line-numbered, so the agent can copy exact snippets to edit. */
+  text: string;
+  lines: number;
+  /** Where things live in the kit. */
+  map: string;
+  message?: string;
 }
 
 export interface ReadGameOutput {
@@ -180,6 +203,7 @@ export type GameDataParts = {
 
 export type GameUITools = {
   makePlan: { input: z.infer<typeof makePlanInput>; output: { ok: true } };
+  startFromKit: { input: z.infer<typeof startFromKitInput>; output: StartFromKitOutput };
   writeGame: { input: z.infer<typeof writeGameInput>; output: WriteGameOutput };
   editGame: { input: z.infer<typeof editGameInput>; output: EditGameOutput };
   readGame: { input: z.infer<typeof readGameInput>; output: ReadGameOutput };

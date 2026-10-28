@@ -55,7 +55,8 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
   });
 
   const resolved = isMock() ? null : resolveAgentModel();
-  const brief = getStarter(input.starterId)?.brief ?? "Make a fun game.";
+  const starter = getStarter(input.starterId);
+  const brief = starter?.brief ?? "Make a fun game.";
 
   const agent = new ToolLoopAgent({
     model: resolved ? resolved.model : createMockAgentModel({ starterId: input.starterId }),
@@ -66,7 +67,12 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
       { role: "system", content: AGENT_INSTRUCTIONS, providerOptions: CACHE_THIS },
       {
         role: "system",
-        content: turnContext({ starterBrief: brief, game: input.game, resume: input.resume }),
+        content: turnContext({
+          starterBrief: brief,
+          suggestedKit: starter?.kit,
+          game: input.game,
+          resume: input.resume,
+        }),
         providerOptions: CACHE_THIS,
       },
     ],
