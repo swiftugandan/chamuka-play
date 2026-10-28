@@ -227,7 +227,13 @@ function Studio({
       >
         <div className="flex shrink-0 items-center gap-2 pb-3 pt-4">
           <button
-            onClick={onNewGame}
+            // Leaving mid-turn stops Mishi: the work so far is kept as unfinished
+            // (to resume later) instead of a hidden turn running on in the
+            // background, where it could race a resume or revive a deleted game.
+            onClick={() => {
+              agent.stop();
+              onNewGame();
+            }}
             className="btn-toy font-display inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-2.5 text-sm font-semibold text-ink"
             style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
           >
@@ -293,7 +299,9 @@ function Studio({
                     ? activityLabel(lastAssistant)
                     : agent.interrupted
                       ? "Mishi didn't get to build your game yet."
-                      : "Hmm, that didn't work. Tell Mishi your idea again!"
+                      : agent.awaitingAnswer
+                        ? "Answer Mishi in the chat to build your game!"
+                        : "Hmm, that didn't work. Tell Mishi your idea again!"
                 }
                 code={agent.busy ? streamingCode(lastAssistant) : ""}
                 failed={!agent.busy}
@@ -312,15 +320,17 @@ function Studio({
             </p>
           )}
           {unsaved && (
-            <p
-              role="status"
-              className="font-display pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-3.5 py-1.5 text-sm font-bold text-[#7a5200] shadow-lg sm:bottom-7"
+            <button
+              type="button"
+              onClick={() => setPanelOverride(true)}
+              aria-label="Not finished yet — open your chat with Mishi"
+              className="font-display absolute bottom-5 left-1/2 inline-flex min-h-[44px] -translate-x-1/2 items-center whitespace-nowrap rounded-full bg-white/95 px-4 text-sm font-bold text-[#7a5200] shadow-lg sm:bottom-6"
             >
               <span className="mr-1.5" aria-hidden="true">
                 ⏸️
               </span>
               Not finished yet
-            </p>
+            </button>
           )}
         </div>
       </div>
@@ -345,10 +355,11 @@ function Studio({
           agent.interrupted
             ? {
                 hasGame: agent.draftGame !== null,
-                onResume: () => {
-                  if (agent.resume()) setInstruction("");
-                },
-                onDiscard: () => setConfirmDiscard(true),
+                // Whatever the child had typed stays in the box.
+                onResume: () => void agent.resume(),
+                // Nothing was built, so there is nothing to lose: no need to ask.
+                onDiscard: () =>
+                  agent.draftGame ? setConfirmDiscard(true) : void agent.discard(),
               }
             : null
         }

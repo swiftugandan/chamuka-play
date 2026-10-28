@@ -20,6 +20,7 @@ import {
   type AgentRequestBody,
   type GameDataPart,
   type GameUIMessage,
+  resumableEdits,
 } from "./protocol";
 
 export const AGENT_NOTICES = {
@@ -118,6 +119,7 @@ export function useGameAgent({
           patchDraft({
             game: { title: part.data.title, code: part.data.code },
             edits: part.data.edits,
+            rewritten: part.data.rewritten,
           });
         }
       }
@@ -147,7 +149,15 @@ export function useGameAgent({
     const timer = setTimeout(() => {
       if (!streaming.current) return;
       lastSnapshot.current = Date.now();
-      patchDraft({ messages: messagesForStorage(chat.messages) });
+      // Mishi's reply is still streaming: leave out any "all done" summary, since
+      // nothing is saved until the turn ends.
+      const replying = chat.messages.at(-1);
+      patchDraft({
+        messages: messagesForStorage(
+          chat.messages,
+          replying?.role === "assistant" ? replying.id : undefined,
+        ),
+      });
     }, wait);
     return () => clearTimeout(timer);
   }, [busy, chat.messages, patchDraft]);
@@ -226,20 +236,31 @@ export function useGameAgent({
     // always edits exactly what the child is playing right now — or, after an
     // interruption, Mishi's unfinished work, which it picks back up.
     const work = draftRef.current;
+    // Earlier work is carried forward only when there is something to pick up:
+    // a game Mishi built, or a new game still being talked through. Otherwise
+    // (e.g. stopped before anything was built) this is a fresh request.
+    const carry = work && (work.game !== null || !current) ? work : null;
     const body: TurnBody = {
       starterId,
-      game: work?.game ?? (current ? { title: current.title, code: current.code } : null),
-      resume: work?.game ? { isNew: work.isNew, edits: work.edits } : undefined,
+      game: carry?.game ?? (current ? { title: current.title, code: current.code } : null),
+      resume: carry?.game
+        ? {
+            isNew: carry.isNew,
+            edits: resumableEdits(carry.edits),
+            rewritten: carry.rewritten ?? false,
+          }
+        : undefined,
     };
     const ask: GameUIMessage = { id: newId(), role: "user", parts: [{ type: "text", text: trimmed }] };
     putDraft({
       game_id: gameId,
       starterId,
-      prompt: trimmed,
       isNew: current === null,
       game: null,
       edits: [],
-      ...work,
+      rewritten: false,
+      ...carry,
+      prompt: carry ? promptAfter(carry, trimmed) : trimmed,
       messages: messagesForStorage([...chat.messages, ask]),
       interrupted: true,
       updatedAt: Date.now(),
@@ -283,6 +304,8 @@ export function useGameAgent({
     draftGame: draft?.game ?? null,
     /** A turn stopped before finishing and can be resumed. */
     interrupted: !busy && draft?.interrupted === true,
+    /** A new game where Mishi is waiting on the child's answer (nothing built yet). */
+    awaitingAnswer: !busy && draft !== null && !draft.interrupted && draft.game === null,
     notice,
     clearNotice: () => setNotice(""),
     send,
@@ -294,6 +317,17 @@ export function useGameAgent({
 }
 
 type TurnBody = Omit<AgentRequestBody, "messages">;
+
+/**
+ * The request a piece of unfinished work is filed under once saved. "Keep
+ * going!" adds nothing; a new request typed over an unfinished change joins
+ * the story ("make it faster, then make it red"). A new game keeps its idea.
+ */
+export function promptAfter(work: GameDraft, said: string): string {
+  if (work.isNew || work.game === null) return work.prompt;
+  if (said === RESUME_ASK || said === work.prompt) return work.prompt;
+  return `${work.prompt}, then ${said}`;
+}
 
 /** Sends the (compacted) chat plus the per-turn body to the agent route. */
 const agentTransport = new DefaultChatTransport<GameUIMessage>({

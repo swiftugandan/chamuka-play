@@ -15,6 +15,7 @@ export function ResumeCard({
   /** Mishi had built (part of) a game before stopping. */
   hasGame: boolean;
   onResume: () => void;
+  /** Let the unfinished work go ("Throw it away", or "Never mind" if nothing was built). */
   onDiscard: () => void;
 }) {
   return (
@@ -46,15 +47,19 @@ export function ResumeCard({
         >
           <Play size={16} fill="currentColor" /> {hasGame ? RESUME_ASK : "Try again!"}
         </button>
-        {hasGame && (
-          <button
-            type="button"
-            onClick={onDiscard}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-3 text-sm font-bold text-ink-soft hover:bg-cloud hover:text-coral-dark"
-          >
-            <Trash2 size={15} /> Throw it away
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-3 text-sm font-bold text-ink-soft hover:bg-cloud hover:text-coral-dark"
+        >
+          {hasGame ? (
+            <>
+              <Trash2 size={15} /> Throw it away
+            </>
+          ) : (
+            "Never mind"
+          )}
+        </button>
       </div>
     </section>
   );

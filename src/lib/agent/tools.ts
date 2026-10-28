@@ -45,6 +45,7 @@ export function createGameTools(
       code: workspace.code,
       revision: workspace.revision,
       edits: workspace.edits,
+      rewritten: workspace.wasRewritten,
     });
 
   return {

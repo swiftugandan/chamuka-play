@@ -45,6 +45,8 @@ export interface GameDraft {
   game: { title: string; code: string } | null;
   /** The edits made so far, for the change story once the work is saved. */
   edits: AppliedEdit[];
+  /** The whole file was rewritten (absent on drafts saved before this existed). */
+  rewritten?: boolean;
   /** The conversation, including the unfinished turn (storage-compacted). */
   messages: GameUIMessage[];
   /** A turn stopped before finishing (vs. Mishi waiting on the child's answer). */

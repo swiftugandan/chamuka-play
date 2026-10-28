@@ -130,3 +130,22 @@ describe("nearestLine", () => {
     expect(nearestLine(GAME, "totally different words here")).toBeUndefined();
   });
 });
+
+describe("GameWorkspace resuming after a rewrite", () => {
+  it("remembers the file was rewritten, so later edits don't pose as the whole change", () => {
+    const ws = new GameWorkspace(
+      { title: "Bunny", code: GAME },
+      { isNew: false, edits: [], rewritten: true },
+    );
+    ws.edit([{ find: "SPEED = 3", replace: "SPEED = 5" }]);
+    expect(ws.wasRewritten).toBe(true);
+    expect(ws.edits).toEqual([]);
+  });
+
+  it("counts a rewrite during a resumed change as a rewrite", () => {
+    const ws = new GameWorkspace({ title: "Bunny", code: GAME }, { isNew: false, edits: [] });
+    ws.write("Bunny 2", GAME.replace("SPEED = 3", "SPEED = 8"));
+    expect(ws.wasRewritten).toBe(true);
+    expect(ws.isNew).toBe(false);
+  });
+});

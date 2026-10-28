@@ -107,9 +107,12 @@ describe("ChangePanel", () => {
     expect(onDiscard).toHaveBeenCalledOnce();
   });
 
-  it("offers to try again when nothing was built before the interruption", () => {
-    renderPanel({ unfinished: { hasGame: false, onResume: () => {}, onDiscard: () => {} } });
+  it("offers to try again — or never mind — when nothing was built", () => {
+    const onDiscard = vi.fn();
+    renderPanel({ unfinished: { hasGame: false, onResume: () => {}, onDiscard } });
     expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /throw it away/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /never mind/i }));
+    expect(onDiscard).toHaveBeenCalledOnce();
   });
 });
