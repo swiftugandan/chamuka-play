@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, Undo2 } from "lucide-react";
+import { ArrowLeft, Share2, Undo2 } from "lucide-react";
 import {
   deleteVersionsAfter,
   getChat,
@@ -21,6 +21,7 @@ import { getStarter } from "@/lib/games/registry";
 import { BuildStage } from "./BuildStage";
 import { ChangeDrawer } from "./ChangeDrawer";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ShareDialog } from "./ShareDialog";
 
 /** A game open in the studio. `version` is null while its first build runs. */
 export interface OpenGame {
@@ -128,6 +129,7 @@ function Studio({
   const [revertTarget, setRevertTarget] = useState<GameVersion | null>(null);
   // Asking before Mishi's unfinished work is thrown away.
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const agent = useGameAgent({
     gameId: game.gameId,
@@ -161,6 +163,8 @@ function Studio({
 
   const idx = current ? versions.findIndex((v) => v.version_id === current.version_id) : -1;
   const canUndo = !agent.busy && idx >= 0 && idx < versions.length - 1;
+  // Only a saved game can be shared, and not while Mishi is changing it.
+  const canShare = !agent.busy && current !== null;
 
   function requestRevert(target: GameVersion) {
     if (agent.busy || target.version_id === current?.version_id) return;
@@ -245,17 +249,30 @@ function Studio({
             <span className="truncate">{title}</span>
           </span>
 
-          {canUndo && (
+          {(canUndo || canShare) && (
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              <button
-                onClick={() => requestRevert(versions[idx + 1])}
-                aria-label="Go back to the version before this"
-                className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2.5 text-sm font-semibold text-ink"
-                style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
-              >
-                <Undo2 size={18} />
-                <span className="hidden sm:inline">Undo</span>
-              </button>
+              {canUndo && (
+                <button
+                  onClick={() => requestRevert(versions[idx + 1])}
+                  aria-label="Go back to the version before this"
+                  className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2.5 text-sm font-semibold text-ink"
+                  style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+                >
+                  <Undo2 size={18} />
+                  <span className="hidden sm:inline">Undo</span>
+                </button>
+              )}
+              {canShare && (
+                <button
+                  onClick={() => setSharing(true)}
+                  aria-label="Share your game"
+                  className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2.5 text-sm font-semibold text-ink"
+                  style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+                >
+                  <Share2 size={18} />
+                  <span className="hidden sm:inline">Share</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -350,6 +367,14 @@ function Studio({
           cancelLabel="Keep playing"
           onConfirm={confirmRevert}
           onCancel={() => setRevertTarget(null)}
+        />
+      )}
+
+      {sharing && current && (
+        <ShareDialog
+          version={current}
+          unsavedWork={agent.draftGame !== null}
+          onClose={() => setSharing(false)}
         />
       )}
 

@@ -141,6 +141,18 @@ work (`changed` is true, prior edits are kept) and `turnContext` tells Mishi to
 finish rather than start over. Going back to a version, or "Throw it away", drops
 the draft.
 
+**Sharing (no server).** A game is shared as a file: its own single HTML file,
+playable in any browser, with an inert metadata block (`<script
+type="application/json" id="chamuka-play-game">`: title, kind, idea) inserted
+just inside `<head>` (`src/lib/share/gameFile.ts`, pure; removing the block
+restores the game byte for byte). The studio's Share button (`ShareDialog`)
+hands it to the device's share sheet when `navigator.canShare({ files })`, else
+downloads it. "Open a game someone sent you" (games list) parses it back, holds
+it to the kid-safety filter (title, idea and the page's visible words), and adds
+it as a new game (`importGame.ts`). Nothing is uploaded or stored server-side.
+Dialogs build on `ToyDialog` (focus in, Tab trapped, Escape/backdrop close,
+focus restored).
+
 **Games run sandboxed.** `PlayView` renders the generated HTML in
 `<iframe sandbox="allow-scripts" srcDoc={code}>`. The game has no access to the
 parent page or storage. Treat generated `code` as untrusted; never inject it
@@ -166,6 +178,7 @@ anywhere but this sandboxed iframe (or the playtest VM).
 | `src/lib/games/registry.ts` | `GAME_STARTERS` (fun + learning categories), starter lookups |
 | `src/lib/safety/kidSafety.ts` | word-list prompt filter (run on client AND in API routes) |
 | `src/lib/storage/{db,repository}.ts` | Dexie schema (v3: versions + chats + drafts) + CRUD, `listGames` summaries |
+| `src/lib/share/` | Share-as-file format, send/save helpers, import of shared games |
 | `src/components/play/` | UI: `Shell`, `PlayView`, `StudioChat`, `AgentStep`, `BuildStage`, `ChangePanel`, … |
 
 ### Conventions
@@ -183,4 +196,5 @@ anywhere but this sandboxed iframe (or the playtest VM).
   `"fun"` or `"learning"`). The UI groups by category automatically.
 - Safety checks must stay on **both** sides — the client check is UX, the API check is the guard.
 - `docs/specs/` and `docs/plans/` hold the product spec and v1 plan; v1 is the game
-  playground only (learning gates, sharing, predict-the-diff come later).
+  playground only (learning gates, link sharing, predict-the-diff come later —
+  file sharing shipped).

@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/play/AppHeader";
 import { AppFooter } from "@/components/play/AppFooter";
 import { listGames, deleteGame, type GameSummary } from "@/lib/storage/repository";
 import { newId } from "@/lib/id";
+import { IMPORT_MESSAGES, ShareImportError, importSharedGame } from "@/lib/share/importGame";
 
 export default function Home() {
   // The game open in the studio (null shows the picker).
@@ -34,6 +35,19 @@ export default function Home() {
   function openGame(g: GameSummary) {
     setDrawerOpen(false);
     setOpen({ gameId: g.game_id, starterId: g.starterId, version: g.latest });
+  }
+
+  // A game someone shared is added as a new game and opened straight away.
+  async function openShared(file: File): Promise<string | null> {
+    try {
+      const version = await importSharedGame(file);
+      refreshGames();
+      setDrawerOpen(false);
+      setOpen({ gameId: version.game_id, starterId: version.starterId, version });
+      return null;
+    } catch (error) {
+      return error instanceof ShareImportError ? error.message : IMPORT_MESSAGES.unreadable;
+    }
   }
 
   async function handleDelete(gameId: string) {
@@ -74,6 +88,7 @@ export default function Home() {
         onToggle={() => setDrawerOpen((o) => !o)}
         onOpen={openGame}
         onDelete={handleDelete}
+        onOpenShared={openShared}
       />
     </div>
   );

@@ -12,6 +12,7 @@ export function GamesDrawer({
   onToggle,
   onOpen,
   onDelete,
+  onOpenShared,
 }: {
   open: boolean;
   games: GameSummary[];
@@ -19,6 +20,7 @@ export function GamesDrawer({
   onToggle: () => void;
   onOpen: (g: GameSummary) => void;
   onDelete: (gameId: string) => void;
+  onOpenShared: (file: File) => Promise<string | null>;
 }) {
   return (
     <SideDrawer
@@ -49,7 +51,12 @@ export function GamesDrawer({
             <X size={18} />
           </button>
         </div>
-        <GamesPanel games={games} onOpen={onOpen} onDelete={onDelete} />
+        <GamesPanel
+          games={games}
+          onOpen={onOpen}
+          onDelete={onDelete}
+          onOpenShared={onOpenShared}
+        />
       </div>
     </SideDrawer>
   );

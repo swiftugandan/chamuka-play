@@ -449,4 +449,30 @@ describe("PlayView studio", () => {
       );
     });
   });
+
+  it("shares the saved game, but only once there is one", async () => {
+    render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /share your game/i }));
+    expect(screen.getByRole("dialog", { name: "Share your game!" })).toHaveTextContent("“Stars”");
+    fireEvent.click(screen.getByRole("button", { name: /not now/i }));
+    expect(screen.queryByRole("dialog", { name: "Share your game!" })).not.toBeInTheDocument();
+  });
+
+  it("has nothing to share before the first build is saved", async () => {
+    await db.versions.clear();
+    await db.drafts.put({
+      game_id: "g",
+      starterId: "clicker",
+      prompt: "a bunny",
+      isNew: true,
+      game: { title: "Bunny", code: "<html>bunny</html>" },
+      edits: [],
+      messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "a bunny" }] }],
+      interrupted: true,
+      updatedAt: 5,
+    });
+    render(<PlayView game={open(null)} onNewGame={() => {}} onUpdated={() => {}} />);
+    await screen.findByRole("button", { name: /keep going/i });
+    expect(screen.queryByRole("button", { name: /share your game/i })).not.toBeInTheDocument();
+  });
 });
