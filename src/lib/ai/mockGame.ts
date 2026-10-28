@@ -1,11 +1,14 @@
 import { getStarter } from "@/lib/games/registry";
 import type { AppliedEdit } from "./edits";
+import type { StarterKitId } from "@/lib/agent/protocol";
 
 /**
  * Offline game material for local demos (MOCK_AI=1). The scripted mock agent
- * (src/lib/agent/mockModel.ts) uses these to build a real, playable game and to
- * make real find/replace edits to it, so the whole studio — live preview, tool
- * steps, what-changed diff, undo — works with no AI provider at all.
+ * (src/lib/agent/mockModel.ts) builds new games from the real starter kits
+ * (mockKitEdits) and makes real find/replace edits to them, so the whole
+ * studio — live preview, tool steps, what-changed diff, undo — works with no AI
+ * provider at all. buildMockGame is a plain, library-free game kept for tests
+ * that must run without a network (the browser playtest harness).
  */
 
 const ACCENTS = ["#7a3cf0", "#ff4fa3", "#45b6fe", "#25d0a8", "#ffc233", "#ff7a66"];
@@ -78,6 +81,25 @@ export function buildMockGame(input: { starterId: string; prompt: string }): {
   return { title, code: buildGame({ title, accent, speed: 2.2 }) };
 }
 
+/** The title the mock gives a new game: the kind of game plus the idea. */
+export function mockTitle(input: { starterId: string; prompt: string }): string {
+  const starter = getStarter(input.starterId);
+  return `${starter?.label ?? "Game"}: ${clean(input.prompt) || "Surprise"}`.slice(0, 48);
+}
+
+/** Edits that turn a starter kit into the child's game (its title). */
+export function mockKitEdits(kit: StarterKitId, title: string): AppliedEdit[] {
+  const safe = clean(title);
+  const name = kit === "phaser-arcade" ? "Star Catcher" : "Math Quest";
+  return [
+    {
+      find: `const GAME_TITLE = "${name}";`,
+      replace: `const GAME_TITLE = "${safe}";`,
+      because: "Your game's name! ✨",
+    },
+  ];
+}
+
 export const MOCK_NEW_GAME_SUGGESTIONS = [
   "make the stars fall faster",
   "change the star colour",
@@ -92,6 +114,37 @@ export function mockChangeEdits(
 ): { edits: AppliedEdit[]; summary: string; suggestions: string[] } {
   const faster = /fast|speed|hard|quick/i.test(instruction);
   const edits: AppliedEdit[] = [];
+
+  // Games built from the starter kits: change their named settings.
+  const fallStart = code.match(/const FALL_SPEED_START = (\d+);/);
+  if (fallStart) {
+    const next = String(faster ? Number(fallStart[1]) + 120 : Math.max(120, Number(fallStart[1]) - 60));
+    edits.push({
+      find: fallStart[0],
+      replace: `const FALL_SPEED_START = ${next};`,
+      because: "This number is how fast things fall — bigger = faster! ⚡",
+    });
+  }
+  const biggest = code.match(/const BIGGEST_NUMBER = (\d+);/);
+  if (biggest) {
+    const next = String(faster ? Number(biggest[1]) * 2 : Math.max(5, Math.round(Number(biggest[1]) / 2)));
+    edits.push({
+      find: biggest[0],
+      replace: `const BIGGEST_NUMBER = ${next};`,
+      because: "Bigger numbers make the sums trickier! 🧠",
+    });
+  }
+  const titleColor = code.match(/title: "(#[0-9a-fA-F]{6})",/) ?? code.match(/--choice: (#[0-9a-fA-F]{6});/);
+  if (titleColor && !faster) {
+    const next = ACCENTS[(hash(instruction) + 3) % ACCENTS.length];
+    if (next.toLowerCase() !== titleColor[1].toLowerCase()) {
+      edits.push({
+        find: titleColor[0],
+        replace: titleColor[0].replace(titleColor[1], next),
+        because: "This is one of the game's colours. 🎨",
+      });
+    }
+  }
 
   const fall = code.match(/fall=([\d.]+)/);
   if (fall) {

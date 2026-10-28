@@ -88,6 +88,13 @@ function compactPart(part: GameUIMessagePart): GameUIMessagePart {
     return { ...part, input: { ...part.input, html: OMITTED_HTML } } as GameUIMessagePart;
   }
   if (
+    part.type === "tool-startFromKit" &&
+    part.state === "output-available" &&
+    part.output.text !== OMITTED_READ
+  ) {
+    return { ...part, output: { ...part.output, text: OMITTED_READ } };
+  }
+  if (
     part.type === "tool-readGame" &&
     part.state === "output-available" &&
     part.output.text !== OMITTED_READ

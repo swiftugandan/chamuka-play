@@ -102,7 +102,8 @@ All persistence flows through `src/lib/storage/repository.ts`.
 2. `/api/agent` (Node runtime, `maxDuration` 300) validates the body, re-runs
    `isPromptSafeForKids`, re-compacts, and calls `runGameTurn`.
 3. `runGameTurn` builds a `ToolLoopAgent` over a per-turn `GameWorkspace` with
-   tools `makePlan`, `writeGame`, `editGame`, `readGame`, `playtest`, `finish`.
+   tools `makePlan`, `startFromKit`, `writeGame`, `editGame`, `readGame`,
+   `playtest`, `finish`.
    It stops on `finish` or `MAX_AGENT_STEPS` (the last step is forced to `finish`
    if the game changed), and always ends with one `finish` chunk.
 4. Streamed to the client: text + tool parts (rendered as kid-friendly steps by
@@ -112,6 +113,28 @@ All persistence flows through `src/lib/storage/repository.ts`.
    `message_id` = the assistant message) and persists the chat. The server ends
    every complete turn with `finish` + `finishReason: "stop"`; a stream without it
    (e.g. a function timeout) counts as interrupted.
+
+**Game quality: libraries + starter kits.** Games are held to a professional bar
+(`GAME_CRAFT_RULES` in `src/lib/games/systemPrompt.ts`). They may load ONLY the
+pinned catalog in `src/lib/games/libraries.ts` — Phaser 3.90 (action games),
+GSAP (DOM games), ZzFX (sound), canvas-confetti, Fredoka/Nunito via Fontsource —
+each with an exact jsDelivr URL and SRI hash. `GameWorkspace` refuses writes or
+edits that add any other external script/stylesheet. New games start from a
+tested starter kit (`src/lib/games/kits.ts`: `phaser-arcade`, `dom-quiz`) via the
+`startFromKit` tool, which puts the kit in place unpublished (the child's
+preview starts with their game) and returns it line-numbered; the agent then
+edits the kit's settings block and gameplay. Starters suggest a kit (`kit` in the
+registry). Kits are played in real Chromium by `kits.browser.test.ts`. To add a
+library: pin it in the catalog with its hash (taken from the jsDelivr bytes),
+then document it in the craft rules. Never use Phaser's `timer.remove()` (3.90
+bug) — `this.time.removeEvent(...)`.
+
+**Running games with their libraries.** Stored games keep plain `<script src>`
+tags. `GameFrame` (studio and player) runs `bundleGame` first: each catalog
+library is fetched once with `integrity` (the browser verifies it) and inlined,
+so games play offline and a CDN change can't alter them; on failure the game
+runs as written. `public/sw.js` keeps exact-version jsDelivr files in
+`chamuka-libs-v1` (cache-first; its own CSP allows that fetch).
 
 **Edits stay find/replace.** Re-emitting a whole file guts games, so changes go
 through `editGame` → `applyEdits`: exact replacements, and each `find` must match
@@ -169,7 +192,7 @@ data: URLs) in the browser — id and scope `/play/<id>`. iOS keeps home-screen
 apps' storage separate from Safari, so on iOS (or when the game came from a link)
 the start URL carries the game. `/play` pages get a strict CSP in production
 (next.config.ts) that the sandboxed srcdoc game inherits: scripts/styles from
-self + jsDelivr only, `connect-src 'self'`, no forms. `public/sw.js` caches two
+self + jsDelivr only, `connect-src` self + jsDelivr, no forms. `public/sw.js` caches two
 shells (`/` and `/play`) so installed games start offline.
 
 **Games run sandboxed.** `PlayView` renders the generated HTML in
@@ -194,6 +217,9 @@ anywhere but this sandboxed iframe (or the playtest VM).
 | `src/lib/ai/models.ts` | Model routing + Anthropic options |
 | `src/lib/ai/applyEdits.ts` | Exact, unique find/replace |
 | `src/lib/games/systemPrompt.ts` | `GAME_CRAFT_RULES` — the quality bar for every game |
+| `src/lib/games/libraries.ts` | The pinned, integrity-checked library catalog (the only allowed external files) |
+| `src/lib/games/kits.ts` | Starter kits (`phaser-arcade`, `dom-quiz`) — polished, tested games to build on |
+| `src/lib/games/bundle.ts` + `src/components/game/GameFrame.tsx` | Inline libraries before a game runs (offline, tamper-proof) |
 | `src/lib/games/registry.ts` | `GAME_STARTERS` (fun + learning categories), starter lookups |
 | `src/lib/safety/kidSafety.ts` | word-list prompt filter (run on client AND in API routes) |
 | `src/lib/storage/{db,repository}.ts` | Dexie schema (v3: versions + chats + drafts) + CRUD, `listGames` summaries |

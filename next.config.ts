@@ -4,7 +4,8 @@ import type { NextConfig } from "next";
  * A game's own app page (/play/<id>) can be opened from a link that carries a
  * game, so it locks down hard: the game (in its sandboxed, srcdoc iframe, which
  * inherits this policy) may load scripts and styles only from here and the CDN
- * games are allowed to use, and may not send data anywhere else or submit forms.
+ * games are allowed to use, may only fetch from here or that CDN (no sending
+ * data to anyone else), and may not submit forms.
  * Production only — the dev server needs eval and a websocket for HMR.
  */
 const GAME_PAGE_CSP = [
@@ -14,9 +15,11 @@ const GAME_PAGE_CSP = [
   "font-src 'self' data: https://cdn.jsdelivr.net",
   "img-src 'self' data: blob:",
   "media-src 'self' data: blob:",
-  "connect-src 'self'",
+  // jsDelivr: the player fetches the game's catalog libraries to inline them.
+  "connect-src 'self' https://cdn.jsdelivr.net",
   "manifest-src 'self' blob:",
-  "worker-src 'self'",
+  // canvas-confetti draws in a worker it creates from a blob: URL.
+  "worker-src 'self' blob:",
   "frame-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
@@ -67,7 +70,8 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self'",
+            // The worker may fetch game libraries (to cache them for offline play).
+            value: "default-src 'self'; script-src 'self'; connect-src 'self' https://cdn.jsdelivr.net",
           },
         ],
       },

@@ -4,13 +4,39 @@ import { createUIMessageStream, readUIMessageStream } from "ai";
 import { runGameTurn } from "./agent";
 import type { GameDataPart, GameUIMessage, ResultDataPart } from "./protocol";
 
-// Run the scripted offline model without its UI pacing.
+// A test can script the model's tool calls exactly; otherwise the offline
+// mock runs without its UI pacing.
+const script: { calls: { toolName: string; input: object }[] | null } = { calls: null };
+
 vi.mock("./mockModel", async (importOriginal) => {
   const real = await importOriginal<typeof import("./mockModel")>();
+  const { MockLanguageModelV3, convertArrayToReadableStream } = await import("ai/test");
   return {
     ...real,
-    createMockAgentModel: (o: { starterId: string }) =>
-      real.createMockAgentModel({ ...o, paceMs: 0 }),
+    createMockAgentModel: (o: { starterId: string }) => {
+      if (!script.calls) return real.createMockAgentModel({ ...o, paceMs: 0 });
+      const calls = script.calls;
+      let step = 0;
+      return new MockLanguageModelV3({
+        doStream: async () => {
+          const call = calls[Math.min(step++, calls.length - 1)];
+          return {
+            stream: convertArrayToReadableStream([
+              { type: "stream-start", warnings: [] },
+              { type: "tool-call", toolCallId: `c${step}`, toolName: call.toolName, input: JSON.stringify(call.input) },
+              {
+                type: "finish",
+                finishReason: { unified: "tool-calls", raw: undefined },
+                usage: {
+                  inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+                  outputTokens: { total: 0, text: 0, reasoning: 0 },
+                },
+              },
+            ]),
+          };
+        },
+      });
+    },
   };
 });
 
@@ -55,13 +81,26 @@ describe("runGameTurn (offline model, end to end)", () => {
     vi.stubEnv("MOCK_AI", "1");
     vi.stubEnv("PLAYTEST_SNAPSHOT_ID", "");
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    script.calls = null;
+  });
 
-  it("plans, builds, playtests and saves a brand-new game", async () => {
+  it("plans, builds from a starter kit, playtests and saves a brand-new game", async () => {
     const { message, live, result } = await turn({ text: "catch the stars", game: null });
 
     const tools = message.parts.filter((p) => p.type.startsWith("tool-")).map((p) => p.type);
-    expect(tools).toEqual(["tool-makePlan", "tool-writeGame", "tool-playtest", "tool-finish"]);
+    expect(tools).toEqual([
+      "tool-makePlan",
+      "tool-startFromKit",
+      "tool-editGame",
+      "tool-playtest",
+      "tool-finish",
+    ]);
+    expect(message.parts.find((p) => p.type === "tool-startFromKit")).toMatchObject({
+      input: { kit: "phaser-arcade" },
+      output: { ok: true, kit: "phaser-arcade" },
+    });
 
     const playtest = message.parts.find((p) => p.type === "tool-playtest");
     expect(playtest).toMatchObject({
@@ -69,8 +108,10 @@ describe("runGameTurn (offline model, end to end)", () => {
       output: { engine: "static", ok: true, errors: [] },
     });
 
+    // The kit's demo never shows: the preview starts with the child's game.
     expect(live).toHaveLength(1);
-    expect(live[0].code).toMatch(/<html/);
+    expect(live[0].code).toContain('const GAME_TITLE = "Clicker Game: catch the stars";');
+    expect(live[0].code).toContain("phaser@3.90.0");
     expect(result).toMatchObject({ kind: "created", edits: [] });
     expect(result!.title).toMatch(/catch the stars/);
     expect(result!.suggestions.length).toBeGreaterThan(0);
@@ -86,8 +127,14 @@ describe("runGameTurn (offline model, end to end)", () => {
     const tools = message.parts.filter((p) => p.type.startsWith("tool-")).map((p) => p.type);
     expect(tools).toEqual(["tool-editGame", "tool-playtest", "tool-finish"]);
     expect(result).toMatchObject({ kind: "changed", summary: "I made the stars fall faster! ⚡" });
-    expect(result!.edits.some((e) => e.replace === "fall=3.6")).toBe(true);
-    expect(live.at(-1)!.code).toContain("fall=3.6");
+    // A one-line change to a named setting, as the craft rules intend.
+    expect(result!.edits).toContainEqual(
+      expect.objectContaining({
+        find: "const FALL_SPEED_START = 230;",
+        replace: "const FALL_SPEED_START = 350;",
+      }),
+    );
+    expect(live.at(-1)!.code).toContain("const FALL_SPEED_START = 350;");
   });
 
   it("doesn't save a version when the turn changed nothing", async () => {
@@ -130,10 +177,42 @@ describe("runGameTurn (offline model, end to end)", () => {
     const { result } = await turn({
       text: "Keep going!",
       game: { title: "Stars", code: "<!doctype html><html><body>speed = 9</body></html>" },
-      resume: { isNew: true, edits: [earlier] },
+      resume: { isNew: false, edits: [earlier] },
     });
-    // Nothing new was written this time, yet the kept work is saved — as the
-    // brand-new game it is, with the story from before the interruption.
-    expect(result).toMatchObject({ kind: "created", title: "Stars", edits: [earlier] });
+    // Nothing new was written this time, yet the kept change is saved, with the
+    // story from before the interruption.
+    expect(result).toMatchObject({ kind: "changed", title: "Stars", edits: [earlier] });
+  });
+
+  it("saves an interrupted brand-new game as a new game", async () => {
+    const { result } = await turn({
+      text: "Keep going!",
+      game: { title: "Stars", code: "<!doctype html><html><body>speed = 9</body></html>" },
+      resume: { isNew: true, edits: [] },
+    });
+    expect(result).toMatchObject({ kind: "created", title: "Stars", edits: [] });
+  });
+
+  it("sends the game before announcing it, even when a kit was finished as is", async () => {
+    script.calls = [
+      { toolName: "startFromKit", input: { kit: "dom-quiz" } },
+      { toolName: "finish", input: { summary: "Here's your quiz!", suggestions: ["more questions", "harder sums"] } },
+    ];
+    const { live, result } = await turn({ text: "a quiz", game: null });
+    // The device saves the last game it was sent — so it must have been sent.
+    expect(live).toHaveLength(1);
+    expect(live[0].code).toContain('const GAME_TITLE = "Math Quest";');
+    expect(result).toMatchObject({ kind: "created", title: "Math Quest" });
+  });
+
+  it("won't put a kit over a game that already exists", async () => {
+    script.calls = [{ toolName: "startFromKit", input: { kit: "phaser-arcade" } }];
+    const game = { title: "Mine", code: "<!DOCTYPE html><html><body>mine</body></html>" };
+    const { message, live, result } = await turn({ text: "start over", game });
+    expect(message.parts.find((p) => p.type === "tool-startFromKit")).toMatchObject({
+      output: { ok: false },
+    });
+    expect(live).toEqual([]);
+    expect(result).toBeUndefined();
   });
 });

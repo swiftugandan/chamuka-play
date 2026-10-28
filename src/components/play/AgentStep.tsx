@@ -50,6 +50,20 @@ export function AgentStep({ part }: { part: ToolPart }) {
       );
     }
 
+    case "tool-startFromKit": {
+      if (running) return <StepRow tone="working" icon="🧰" label="Getting out the building blocks…" />;
+      if (failed || (part.state === "output-available" && !part.output.ok)) {
+        return <StepRow tone="oops" icon="🧰" label="That kit didn't fit — trying again" />;
+      }
+      return (
+        <StepRow
+          tone="done"
+          icon="🧰"
+          label={part.input?.kit === "dom-quiz" ? "Got the quiz & card kit" : "Got the action game kit"}
+        />
+      );
+    }
+
     case "tool-writeGame": {
       if (running) {
         const lines = part.input?.html ? part.input.html.split("\n").length : 0;

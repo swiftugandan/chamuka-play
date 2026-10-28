@@ -9,11 +9,14 @@ import {
   makePlanInput,
   playtestInput,
   readGameInput,
+  startFromKitInput,
   writeGameInput,
   type GameDataPart,
   type PlaytestOutput,
   type ResultDataPart,
+  type StartFromKitOutput,
 } from "./protocol";
+import { STARTER_KITS } from "@/lib/games/kits";
 
 export interface TurnHooks {
   /** The game changed — stream it to the live preview. */
@@ -22,7 +25,7 @@ export interface TurnHooks {
   onResult: (result: ResultDataPart) => void;
 }
 
-const NO_GAME_YET = "There is no game yet — use writeGame first.";
+const NO_GAME_YET = "There is no game yet — use startFromKit or writeGame first.";
 
 /**
  * The agent's tools for one turn. Each is a thin adapter over the workspace or
@@ -39,14 +42,7 @@ export function createGameTools(
   // bloat every later request). Keyed by tool call; only this turn's survive.
   const screenshots = new Map<string, string>();
 
-  const publishGame = () =>
-    hooks.onGame({
-      title: workspace.title,
-      code: workspace.code,
-      revision: workspace.revision,
-      edits: workspace.edits,
-      rewritten: workspace.wasRewritten,
-    });
+  const publishGame = () => hooks.onGame(workspace.snapshot());
 
   return {
     makePlan: tool({
@@ -54,6 +50,36 @@ export function createGameTools(
         "Share your plan for a NEW game with the child before building it: a one-line pitch and the build steps, in a child's words.",
       inputSchema: makePlanInput,
       execute: async () => ({ ok: true as const }),
+    }),
+
+    startFromKit: tool({
+      description:
+        "Start a NEW game from a polished, tested starter kit instead of an empty file. Puts the kit in place as the current game and returns it line-numbered, with a map of where things live. Then make it the child's game with editGame (settings, emoji, colours, title, gameplay) — or writeGame for a big redesign that keeps the kit's structure.",
+      inputSchema: startFromKitInput,
+      execute: async ({ kit }): Promise<StartFromKitOutput> => {
+        if (workspace.hasGame) {
+          return {
+            ok: false,
+            kit,
+            text: "",
+            lines: 0,
+            map: "",
+            message:
+              "There is already a game — change it with editGame (or writeGame for a real redesign). Kits are only for brand-new games.",
+          };
+        }
+        const chosen = STARTER_KITS[kit];
+        // No name yet: the game's GAME_TITLE setting names it once it's the
+        // child's game (workspace.gameTitle).
+        const result = workspace.write("", chosen.code);
+        if (!result.ok) {
+          return { ok: false, kit, text: "", lines: 0, map: "", message: result.message };
+        }
+        // Not published yet: the child's preview starts with THEIR game (the
+        // first edit), not the kit's demo.
+        const { text, totalLines } = workspace.read();
+        return { ok: true, kit, text, lines: totalLines, map: chosen.map };
+      },
     }),
 
     writeGame: tool({
@@ -137,7 +163,7 @@ export function createGameTools(
           finished = true;
           hooks.onResult({
             kind: workspace.isNew ? "created" : "changed",
-            title: workspace.title,
+            title: workspace.gameTitle,
             summary,
             edits: workspace.edits,
             suggestions,

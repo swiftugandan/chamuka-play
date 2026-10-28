@@ -1,6 +1,11 @@
 // Hand-rolled app-shell service worker for Chamuka Play (local-first PWA).
 // Bump CACHE to invalidate old caches on the next activation.
 const CACHE = "chamuka-v2";
+// Game libraries (exact versions on jsDelivr never change), kept across app
+// updates so games that use them keep playing offline.
+const LIB_CACHE = "chamuka-libs-v1";
+const LIB_ORIGIN = "https://cdn.jsdelivr.net";
+const EXACT_VERSION = /^\/npm\/(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+\//;
 // Two app shells: the studio, and the player every installed game opens to
 // (/play/<id> is one static page that reads the id from the address).
 const STUDIO_SHELL = "/";
@@ -26,7 +31,9 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))),
+        Promise.all(
+          keys.filter((k) => k !== CACHE && k !== LIB_CACHE).map((k) => caches.delete(k)),
+        ),
       )
       .then(() => self.clients.claim()),
   );
@@ -35,6 +42,24 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Game libraries: cache-first (they're immutable). Only readable (CORS)
+  // responses are kept — the app fetches them to inline into games.
+  if (request.method === "GET" && url.origin === LIB_ORIGIN && EXACT_VERSION.test(url.pathname)) {
+    event.respondWith(
+      caches.open(LIB_CACHE).then((cache) =>
+        cache.match(request).then(
+          (hit) =>
+            hit ||
+            fetch(request).then((res) => {
+              if (res.ok && res.type === "cors") cache.put(request, res.clone());
+              return res;
+            }),
+        ),
+      ),
+    );
+    return;
+  }
 
   // Only handle same-origin GETs; everything else goes straight to the network.
   if (request.method !== "GET" || url.origin !== self.location.origin) return;

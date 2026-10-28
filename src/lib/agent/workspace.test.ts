@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { GameWorkspace, nearestLine } from "./workspace";
+import { GameWorkspace, nearestLine, titleFromCode } from "./workspace";
+import { libraryTag } from "@/lib/games/libraries";
 import { MAX_GAME_BYTES } from "./protocol";
 
 const GAME = `<!DOCTYPE html>
@@ -149,3 +150,60 @@ describe("GameWorkspace resuming after a rewrite", () => {
     expect(ws.isNew).toBe(false);
   });
 });
+
+describe("GameWorkspace — libraries", () => {
+  const PHASER = '<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>';
+  const page = (head: string) => `<!DOCTYPE html><html><head>${head}</head><body></body></html>`;
+
+  it("lets a game use catalog libraries", () => {
+    const ws = new GameWorkspace(null);
+    expect(ws.write("Stars", page(PHASER)).ok).toBe(true);
+  });
+
+  it("refuses a new game that loads anything else, and says what is allowed", () => {
+    const ws = new GameWorkspace(null);
+    const out = ws.write("Stars", page('<script src="https://unpkg.com/phaser"></script>'));
+    expect(out.ok).toBe(false);
+    expect(out.message).toContain("Not allowed: https://unpkg.com/phaser");
+    expect(out.message).toContain(libraryTag("phaser")); // the exact tag to copy
+    expect(ws.hasGame).toBe(false);
+  });
+
+  it("refuses an edit that adds an outside library, and changes nothing", () => {
+    const ws = new GameWorkspace({ title: "Stars", code: page("") });
+    const out = ws.edit([{ find: "<head>", replace: '<head><script src="https://x.example/a.js"></script>' }]);
+    expect(out.applied).toBe(0);
+    expect(out.failed[0].reason).toContain("Not allowed");
+    expect(ws.changed).toBe(false);
+  });
+
+  it("keeps older games editable even if they already load something else", () => {
+    const old = page('<script src="https://cdn.jsdelivr.net/npm/old-lib@1.0.0/x.js"></script><title>a</title>');
+    const ws = new GameWorkspace({ title: "Stars", code: old });
+    expect(ws.edit([{ find: "<title>a</title>", replace: "<title>b</title>" }]).applied).toBe(1);
+  });
+});
+
+describe("the game's name", () => {
+  it("comes from the GAME_TITLE setting, the one place the kits keep it", () => {
+    const code = `<html><script>const GAME_TITLE = "Bone Catcher"; // the name</script></html>`;
+    expect(titleFromCode(code)).toBe("Bone Catcher");
+    expect(titleFromCode(`const GAME_TITLE = 'Dino \\'Spell\\'';`)).toBe("Dino 'Spell'");
+    expect(titleFromCode("<html></html>")).toBe("");
+  });
+
+  it("follows GAME_TITLE even when the agent never names the game", () => {
+    const ws = new GameWorkspace(null);
+    ws.write("", `<!DOCTYPE html><html><script>const GAME_TITLE = "Star Catcher";</script></html>`);
+    ws.edit([{ find: '"Star Catcher"', replace: '"Bone Catcher"' }]);
+    expect(ws.gameTitle).toBe("Bone Catcher");
+  });
+
+  it("falls back to the given name, then a friendly default", () => {
+    expect(new GameWorkspace({ title: "Old Game", code: "<html></html>" }).gameTitle).toBe("Old Game");
+    const ws = new GameWorkspace(null);
+    ws.write("", "<!DOCTYPE html><html></html>");
+    expect(ws.gameTitle).toBe("My game");
+  });
+});
+
