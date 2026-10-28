@@ -1,5 +1,6 @@
 import { Gamepad2 } from "lucide-react";
 import { Mascot } from "./Mascot";
+import { InstallAppButton } from "@/components/install/InstallAppButton";
 
 /** Full-width app header used on the home/make screen. */
 export function AppHeader({
@@ -16,16 +17,19 @@ export function AppHeader({
         <span className="font-display text-xl font-bold sm:text-2xl">
           Chamuka <span className="text-grape">Play</span>
         </span>
-        {onOpenGames && (
-          <button
-            onClick={onOpenGames}
-            className="btn-toy ml-auto inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-display text-sm font-semibold text-ink"
-            style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
-          >
-            <Gamepad2 size={16} className="text-grape" /> My games
-            {gamesCount > 0 ? ` (${gamesCount})` : ""}
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          <InstallAppButton />
+          {onOpenGames && (
+            <button
+              onClick={onOpenGames}
+              className="btn-toy inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 font-display text-sm font-semibold text-ink"
+              style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+            >
+              <Gamepad2 size={16} className="text-grape" /> My games
+              {gamesCount > 0 ? ` (${gamesCount})` : ""}
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

@@ -74,20 +74,27 @@ export function parseShareFile(html: string): ParsedShareFile {
   }
 
   const code = html.slice(0, match.index) + html.slice(match.index + match[0].length);
-  if (!/<html[\s>]/i.test(code) || !/<\/html>/i.test(code)) {
+  return validateSharedGame({
+    title: meta.title,
+    code,
+    starterId: meta.starterId,
+    prompt: meta.prompt,
+  });
+}
+
+/**
+ * Hold a game that came from somewhere else (a file, a link) to the app's bar:
+ * a complete HTML page, within the size limit, and as friendly as a child's own
+ * idea (its name, its idea, and the words it shows).
+ */
+export function validateSharedGame(game: SharedGame): ParsedShareFile {
+  if (!/<html[\s>]/i.test(game.code) || !/<\/html>/i.test(game.code)) {
     return { ok: false, problem: "not-a-game" };
   }
-  if (byteLength(code) > MAX_GAME_BYTES) return { ok: false, problem: "too-big" };
-
-  // A shared game comes from someone else: hold it to the same friendliness bar
-  // as a child's own idea (its name, its idea, and the words it shows).
-  const safety = isPromptSafeForKids(`${meta.title}\n${meta.prompt}\n${visibleText(code)}`);
+  if (byteLength(game.code) > MAX_GAME_BYTES) return { ok: false, problem: "too-big" };
+  const safety = isPromptSafeForKids(`${game.title}\n${game.prompt}\n${visibleText(game.code)}`);
   if (!safety.safe) return { ok: false, problem: "unfriendly", reason: safety.reason };
-
-  return {
-    ok: true,
-    game: { title: meta.title, code, starterId: meta.starterId, prompt: meta.prompt },
-  };
+  return { ok: true, game };
 }
 
 /** A tidy, portable file name: "Bunny Hop!" → "bunny-hop.html". */

@@ -1,8 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Download, Send } from "lucide-react";
+import { Download, Send, Smartphone } from "lucide-react";
 import type { GameVersion } from "@/lib/storage/repository";
 import { canSendFile, gameFile, saveFile, sendFile } from "@/lib/share/sendGame";
+import { encodeGameSnapshot, gameAppPath } from "@/lib/share/gameLink";
 import { ToyDialog } from "./ToyDialog";
 
 type Outcome = "sent" | "saved" | "failed" | null;
@@ -39,6 +40,28 @@ export function ShareDialog({
   function save() {
     saveFile(file);
     setOutcome("saved");
+  }
+
+  // Opens the game on its own page, where it can be installed as an app. The
+  // tab opens straight away (inside the tap, so it isn't blocked as a pop-up);
+  // the address — which carries the game itself, for iPhones — follows.
+  async function openAsApp() {
+    const tab = window.open("", "_blank");
+    try {
+      const data = await encodeGameSnapshot({
+        title: version.title,
+        code: version.code,
+        starterId: version.starterId,
+        prompt: version.prompt,
+      });
+      const url = `${gameAppPath(version.game_id)}#g=${data}`;
+      if (tab) tab.location.href = url;
+      else location.assign(url);
+      onClose();
+    } catch {
+      tab?.close();
+      setOutcome("failed");
+    }
   }
 
   const primaryStyle = {
@@ -86,6 +109,14 @@ export function ShareDialog({
           style={canSend ? secondaryStyle : primaryStyle}
         >
           <Download size={18} /> Save it
+        </button>
+        <button
+          type="button"
+          onClick={openAsApp}
+          className="btn-toy font-display inline-flex w-full items-center justify-center gap-2 rounded-full bg-white p-3.5 text-[17px] font-bold text-ink"
+          style={secondaryStyle}
+        >
+          <Smartphone size={18} /> Make it an app
         </button>
         <button
           type="button"
