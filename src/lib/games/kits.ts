@@ -753,10 +753,15 @@ function shuffle(list) {
   return list;
 }
 
-// The answers to pick from: the question's own list, or — for a number —
-// believable wrong answers close to the right one.
+// The answers to pick from: the question's own list (always keeping the right
+// answer, however long the list), or — for a number — believable wrong
+// answers close to the right one.
 function makeChoices(question) {
-  if (Array.isArray(question.choices)) return shuffle(question.choices.slice(0, CHOICES));
+  if (Array.isArray(question.choices)) {
+    const answer = String(question.answer);
+    const wrong = question.choices.filter((choice, i, all) => String(choice) !== answer && all.indexOf(choice) === i);
+    return shuffle([question.answer].concat(shuffle(wrong).slice(0, CHOICES - 1)));
+  }
   const answer = Number(question.answer);
   const options = new Set([answer]);
   for (let tries = 0; options.size < CHOICES && tries < 200; tries++) {

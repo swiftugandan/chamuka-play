@@ -129,6 +129,22 @@ describe.skipIf(!hasBrowser)("starter kits in real Chromium", () => {
     await page.close();
   }, 30_000);
 
+  it("dom-quiz always offers the right answer, even from a long list of choices", async (ctx) => {
+    if (!ready) return ctx.skip();
+    const { page, problems } = await open(STARTER_KITS["dom-quiz"].code, VIEWPORTS[0]);
+    const offered = await page.evaluate(() => {
+      const question = { text: "?", answer: "Owl", choices: ["Cat", "Dog", "Cow", "Pig", "Hen", "Cat", "Owl"] };
+      return Array.from({ length: 200 }, () => makeChoices(question) as string[]);
+    });
+    for (const choices of offered) {
+      expect(choices).toContain("Owl");
+      expect(new Set(choices).size).toBe(choices.length); // no repeats
+      expect(choices.length).toBe(4);
+    }
+    expect(problems).toEqual([]);
+    await page.close();
+  }, 30_000);
+
   for (const viewport of VIEWPORTS) {
     it(`phaser-arcade plays title → play → end → again at ${viewport.width}×${viewport.height}`, async (ctx) => {
       if (!ready) return ctx.skip();
@@ -188,3 +204,5 @@ describe.skipIf(!hasBrowser)("starter kits in real Chromium", () => {
 declare const game: {
   scene: { isActive(key: string): boolean; getScene(key: string): { events: { emit(e: string): void } } };
 };
+// The quiz kit's makeChoices is a global of the page.
+declare function makeChoices(question: { text: string; answer: unknown; choices?: unknown[] }): unknown[];
