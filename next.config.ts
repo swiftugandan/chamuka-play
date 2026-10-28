@@ -1,5 +1,34 @@
 import type { NextConfig } from "next";
 
+/**
+ * A game's own app page (/play/<id>) can be opened from a link that carries a
+ * game, so it locks down hard: the game (in its sandboxed, srcdoc iframe, which
+ * inherits this policy) may load scripts and styles only from here and the CDN
+ * games are allowed to use, and may not send data anywhere else or submit forms.
+ * Production only — the dev server needs eval and a websocket for HMR.
+ */
+const GAME_PAGE_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "font-src 'self' data: https://cdn.jsdelivr.net",
+  "img-src 'self' data: blob:",
+  "media-src 'self' data: blob:",
+  "connect-src 'self'",
+  "manifest-src 'self' blob:",
+  "worker-src 'self'",
+  "frame-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+].join("; ");
+
+const gamePageHeaders = [
+  { key: "Content-Security-Policy", value: GAME_PAGE_CSP },
+  { key: "Referrer-Policy", value: "no-referrer" },
+];
+
 const nextConfig: NextConfig = {
   // Pin the workspace root to this app so Turbopack doesn't infer a parent
   // directory when sibling lockfiles exist.
@@ -11,10 +40,20 @@ const nextConfig: NextConfig = {
   // covers the whole subnet so it survives the device's DHCP lease changing.
   // Dev-only — has no effect on production builds.
   allowedDevOrigins: ["192.168.0.*"],
-  // The service worker must be served as JS, never cached (so updates land
-  // immediately), and locked to same-origin scripts.
+  // Every game's app page is the same static player; it reads the id itself.
+  async rewrites() {
+    return [{ source: "/play/:gameId", destination: "/play" }];
+  },
   async headers() {
     return [
+      ...(process.env.NODE_ENV === "production"
+        ? [
+            { source: "/play", headers: gamePageHeaders },
+            { source: "/play/:gameId", headers: gamePageHeaders },
+          ]
+        : []),
+      // The service worker must be served as JS, never cached (so updates land
+      // immediately), and locked to same-origin scripts.
       {
         source: "/sw.js",
         headers: [

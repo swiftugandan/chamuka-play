@@ -82,10 +82,14 @@ breakpoints (standing instructions; per-turn game context). Resolution uses `||`
 
 ## Architecture
 
-A single client-rendered page plus two server routes: `/api/agent` (the game
-agent) and `/api/examples` (idea chips).
+Two root layouts (route groups): `(studio)` — the Chamuka Play app (`/`) — and
+`(player)` — a single game running as its own app (`/play/<id>`, rewritten to the
+one static `/play` page). Plus two server routes: `/api/agent` (the game agent)
+and `/api/examples` (idea chips). Chamuka Play's manifest is a plain route
+(`app/manifest.webmanifest/route.ts`) linked from the studio layout only — never
+Next's root manifest file convention, which would also link it on game pages.
 
-**Client state lives in `src/app/page.tsx`** (`Home`). It holds `open: OpenGame |
+**Client state lives in `src/app/(studio)/page.tsx`** (`Home`). It holds `open: OpenGame |
 null` (`{ gameId, starterId, version, firstPrompt? }`) and the `games` list. Null
 renders the picker (`Shell` + `GamesDrawer`); otherwise `PlayView` — the studio.
 All persistence flows through `src/lib/storage/repository.ts`.
@@ -153,6 +157,21 @@ it as a new game (`importGame.ts`). Nothing is uploaded or stored server-side.
 Dialogs build on `ToyDialog` (focus in, Tab trapped, Escape/backdrop close,
 focus restored).
 
+**Installing (PWA).** Chamuka Play installs as an app ("Get the app":
+`InstallAppButton`, using `useInstall` in `src/lib/pwa/install.ts` — the captured
+`beforeinstallprompt` on Chromium, menu steps on Safari). Each game can also be
+installed as its own app ("Make it an app" in `ShareDialog`) from `/play/<id>`:
+`GamePlayer` plays the newest version on this device, else the copy carried in
+the link (`#g=…`, `src/lib/share/gameLink.ts`: deflated JSON in the URL
+fragment, never sent to a server, validated like a shared file), and
+`useGameAppIdentity` builds that game's manifest (blob: URL) and icons (canvas
+data: URLs) in the browser — id and scope `/play/<id>`. iOS keeps home-screen
+apps' storage separate from Safari, so on iOS (or when the game came from a link)
+the start URL carries the game. `/play` pages get a strict CSP in production
+(next.config.ts) that the sandboxed srcdoc game inherits: scripts/styles from
+self + jsDelivr only, `connect-src 'self'`, no forms. `public/sw.js` caches two
+shells (`/` and `/play`) so installed games start offline.
+
 **Games run sandboxed.** `PlayView` renders the generated HTML in
 `<iframe sandbox="allow-scripts" srcDoc={code}>`. The game has no access to the
 parent page or storage. Treat generated `code` as untrusted; never inject it
@@ -178,7 +197,9 @@ anywhere but this sandboxed iframe (or the playtest VM).
 | `src/lib/games/registry.ts` | `GAME_STARTERS` (fun + learning categories), starter lookups |
 | `src/lib/safety/kidSafety.ts` | word-list prompt filter (run on client AND in API routes) |
 | `src/lib/storage/{db,repository}.ts` | Dexie schema (v3: versions + chats + drafts) + CRUD, `listGames` summaries |
-| `src/lib/share/` | Share-as-file format, send/save helpers, import of shared games |
+| `src/lib/share/` | Share-as-file format, game-in-a-link format, send/save helpers, import |
+| `src/lib/pwa/` | Install detection/prompt, Chamuka manifest, per-game manifest + icons |
+| `src/components/player/` | `/play/<id>`: `GamePlayer`, `PlayerBar`, `useGameAppIdentity` |
 | `src/components/play/` | UI: `Shell`, `PlayView`, `StudioChat`, `AgentStep`, `BuildStage`, `ChangePanel`, … |
 
 ### Conventions

@@ -1,6 +1,13 @@
 import type { MetadataRoute } from "next";
 
-export default function manifest(): MetadataRoute.Manifest {
+/**
+ * Chamuka Play's own web app manifest. Served by a plain route
+ * (app/manifest.webmanifest/route.ts) and linked from the studio layout only —
+ * not via Next's root manifest file convention, which would link it on every
+ * page, including each game's own app page (/play/<id>), whose manifest is
+ * built for that game.
+ */
+export function appManifest(): MetadataRoute.Manifest {
   return {
     name: "Chamuka Play",
     short_name: "Chamuka",

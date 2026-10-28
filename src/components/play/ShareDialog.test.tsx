@@ -86,4 +86,16 @@ describe("ShareDialog", () => {
     render(<ShareDialog version={version} unsavedWork onClose={() => {}} />);
     expect(screen.getByText(/unfinished changes aren't included/i)).toBeInTheDocument();
   });
+
+  it("opens the game on its own page to make it an app, carrying the game in the link", async () => {
+    const tab = { location: { href: "" }, close: vi.fn() };
+    const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+    const onClose = vi.fn();
+    render(<ShareDialog version={version} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: /make it an app/i }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(open).toHaveBeenCalledWith("", "_blank");
+    expect(tab.location.href).toMatch(/^\/play\/g#g=1\.[A-Za-z0-9_-]+$/);
+  });
 });

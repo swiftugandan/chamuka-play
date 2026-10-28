@@ -24,7 +24,10 @@ self-hostable.
    HTML file that plays in any web browser — no app, no account, nothing
    uploaded. Friends can play it as is, or open it in Chamuka Play ("Open a game
    someone sent you") to keep changing it.
-7. Nothing is lost if Mishi gets interrupted — you press stop, close the tab, or
+7. **Make it an app:** any game can be installed on its own — its own name and
+   icon on the home screen, opening straight into the game, offline. Chamuka
+   Play itself installs too ("Get the app").
+8. Nothing is lost if Mishi gets interrupted — you press stop, close the tab, or
    something breaks. The unfinished game is kept on your device (marked "Not
    finished"), and Mishi can **keep going** from where it stopped.
 

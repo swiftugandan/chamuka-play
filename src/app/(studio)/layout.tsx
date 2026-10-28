@@ -1,25 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Fredoka, Nunito } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
-import "./globals.css";
+import { fredoka, nunito } from "../fonts";
+import "../globals.css";
 
-const fredoka = Fredoka({
-  variable: "--font-fredoka",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-const nunito = Nunito({
-  variable: "--font-nunito",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-});
-
+// The studio is the Chamuka Play app. Each game's own app (/play/…) has a
+// separate root layout so it never picks up this app's manifest or icons.
 export const metadata: Metadata = {
   title: "Chamuka Play",
   description: "Make your own games and learn by making.",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Chamuka" },
   icons: { apple: "/apple-icon-180.png" },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {

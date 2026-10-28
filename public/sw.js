@@ -1,13 +1,22 @@
 // Hand-rolled app-shell service worker for Chamuka Play (local-first PWA).
 // Bump CACHE to invalidate old caches on the next activation.
-const CACHE = "chamuka-v1";
-const SHELL = "/";
+const CACHE = "chamuka-v2";
+// Two app shells: the studio, and the player every installed game opens to
+// (/play/<id> is one static page that reads the id from the address).
+const STUDIO_SHELL = "/";
+const PLAYER_SHELL = "/play";
+
+function shellFor(url) {
+  return url.pathname === PLAYER_SHELL || url.pathname.startsWith(PLAYER_SHELL + "/")
+    ? PLAYER_SHELL
+    : STUDIO_SHELL;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.add(SHELL))
+      .then((c) => c.addAll([STUDIO_SHELL, PLAYER_SHELL]))
       .then(() => self.skipWaiting()),
   );
 });
@@ -33,8 +42,10 @@ self.addEventListener("fetch", (event) => {
   // AI endpoints must always hit the network — never serve a cached game.
   if (url.pathname.startsWith("/api/")) return;
 
-  // Page navigations: network-first, fall back to the cached app shell offline.
+  // Page navigations: network-first, fall back to the cached app shell offline
+  // — so an installed game starts even with no connection.
   if (request.mode === "navigate") {
+    const shell = shellFor(url);
     event.respondWith(
       fetch(request)
         .then((res) => {
@@ -42,11 +53,11 @@ self.addEventListener("fetch", (event) => {
           // error page can't become the offline fallback.
           if (res.ok) {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(SHELL, copy));
+            caches.open(CACHE).then((c) => c.put(shell, copy));
           }
           return res;
         })
-        .catch(() => caches.match(SHELL).then((r) => r || caches.match(request))),
+        .catch(() => caches.match(shell).then((r) => r || caches.match(request))),
     );
     return;
   }

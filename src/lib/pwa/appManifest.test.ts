@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import manifest from "./manifest";
+import { appManifest as manifest } from "./appManifest";
 
 describe("web app manifest", () => {
   it("describes an installable, standalone, branded app", () => {
