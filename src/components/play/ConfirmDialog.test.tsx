@@ -40,4 +40,11 @@ describe("ConfirmDialog", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it("starts on the safe choice, so a stray Enter can't destroy anything", () => {
+    render(
+      <ConfirmDialog title="Delete?" message="x" confirmLabel="Delete" cancelLabel="Keep" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: "Keep" })).toHaveFocus();
+  });
 });

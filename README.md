@@ -20,7 +20,11 @@ self-hostable.
    idea could mean two things.
 5. Every version and the whole chat are saved locally (IndexedDB). Your games
    live under "My games"; tap any earlier change to go back to it.
-6. Nothing is lost if Mishi gets interrupted — you press stop, close the tab, or
+6. **Share** a game: it's saved (or sent from your phone's share sheet) as one
+   HTML file that plays in any web browser — no app, no account, nothing
+   uploaded. Friends can play it as is, or open it in Chamuka Play ("Open a game
+   someone sent you") to keep changing it.
+7. Nothing is lost if Mishi gets interrupted — you press stop, close the tab, or
    something breaks. The unfinished game is kept on your device (marked "Not
    finished"), and Mishi can **keep going** from where it stopped.
 

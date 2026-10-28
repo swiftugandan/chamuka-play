@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Gift, Trash2 } from "lucide-react";
 import type { GameSummary } from "@/lib/storage/repository";
 import { starterTheme } from "./starterTheme";
 import { Mascot } from "./Mascot";
@@ -10,12 +10,31 @@ export function GamesPanel({
   games,
   onOpen,
   onDelete,
+  onOpenShared,
 }: {
   games: GameSummary[];
   onOpen: (g: GameSummary) => void;
   onDelete: (gameId: string) => void;
+  /** Open a game file someone shared. Resolves to a message if it couldn't. */
+  onOpenShared: (file: File) => Promise<string | null>;
 }) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState("");
+
+  async function openFile(file: File | undefined) {
+    if (!file) return;
+    setOpening(true);
+    setOpenError("");
+    try {
+      setOpenError((await onOpenShared(file)) ?? "");
+    } finally {
+      setOpening(false);
+      // Let the same file be picked again after a fix.
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -27,6 +46,28 @@ export function GamesPanel({
           </span>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => fileInput.current?.click()}
+        disabled={opening}
+        className="mb-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border-[3px] border-dashed border-lilac/50 bg-white/60 px-3 py-2.5 text-sm font-bold text-grape transition-colors hover:border-lilac hover:bg-white disabled:opacity-60"
+      >
+        <Gift size={18} /> {opening ? "Opening…" : "Open a game someone sent you"}
+      </button>
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".html,.htm,text/html"
+        className="hidden"
+        aria-label="Choose a shared game file"
+        onChange={(e) => void openFile(e.target.files?.[0])}
+      />
+      {openError && (
+        <p role="alert" className="mb-3 px-1 text-center text-sm font-bold text-coral-dark">
+          {openError}
+        </p>
+      )}
 
       {games.length === 0 ? (
         <div className="card-toy flex flex-col items-center gap-2 rounded-toy-lg border-[3px] border-white bg-white px-4 py-8 text-center">
