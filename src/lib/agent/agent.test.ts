@@ -4,13 +4,39 @@ import { createUIMessageStream, readUIMessageStream } from "ai";
 import { runGameTurn } from "./agent";
 import type { GameDataPart, GameUIMessage, ResultDataPart } from "./protocol";
 
-// Run the scripted offline model without its UI pacing.
+// A test can script the model's tool calls exactly; otherwise the offline
+// mock runs without its UI pacing.
+const script: { calls: { toolName: string; input: object }[] | null } = { calls: null };
+
 vi.mock("./mockModel", async (importOriginal) => {
   const real = await importOriginal<typeof import("./mockModel")>();
+  const { MockLanguageModelV3, convertArrayToReadableStream } = await import("ai/test");
   return {
     ...real,
-    createMockAgentModel: (o: { starterId: string }) =>
-      real.createMockAgentModel({ ...o, paceMs: 0 }),
+    createMockAgentModel: (o: { starterId: string }) => {
+      if (!script.calls) return real.createMockAgentModel({ ...o, paceMs: 0 });
+      const calls = script.calls;
+      let step = 0;
+      return new MockLanguageModelV3({
+        doStream: async () => {
+          const call = calls[Math.min(step++, calls.length - 1)];
+          return {
+            stream: convertArrayToReadableStream([
+              { type: "stream-start", warnings: [] },
+              { type: "tool-call", toolCallId: `c${step}`, toolName: call.toolName, input: JSON.stringify(call.input) },
+              {
+                type: "finish",
+                finishReason: { unified: "tool-calls", raw: undefined },
+                usage: {
+                  inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+                  outputTokens: { total: 0, text: 0, reasoning: 0 },
+                },
+              },
+            ]),
+          };
+        },
+      });
+    },
   };
 });
 
@@ -55,7 +81,10 @@ describe("runGameTurn (offline model, end to end)", () => {
     vi.stubEnv("MOCK_AI", "1");
     vi.stubEnv("PLAYTEST_SNAPSHOT_ID", "");
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    script.calls = null;
+  });
 
   it("plans, builds from a starter kit, playtests and saves a brand-new game", async () => {
     const { message, live, result } = await turn({ text: "catch the stars", game: null });
@@ -162,5 +191,28 @@ describe("runGameTurn (offline model, end to end)", () => {
       resume: { isNew: true, edits: [] },
     });
     expect(result).toMatchObject({ kind: "created", title: "Stars", edits: [] });
+  });
+
+  it("sends the game before announcing it, even when a kit was finished as is", async () => {
+    script.calls = [
+      { toolName: "startFromKit", input: { kit: "dom-quiz" } },
+      { toolName: "finish", input: { summary: "Here's your quiz!", suggestions: ["more questions", "harder sums"] } },
+    ];
+    const { live, result } = await turn({ text: "a quiz", game: null });
+    // The device saves the last game it was sent — so it must have been sent.
+    expect(live).toHaveLength(1);
+    expect(live[0].code).toContain('const GAME_TITLE = "Math Quest";');
+    expect(result).toMatchObject({ kind: "created", title: "Math Quest" });
+  });
+
+  it("won't put a kit over a game that already exists", async () => {
+    script.calls = [{ toolName: "startFromKit", input: { kit: "phaser-arcade" } }];
+    const game = { title: "Mine", code: "<!DOCTYPE html><html><body>mine</body></html>" };
+    const { message, live, result } = await turn({ text: "start over", game });
+    expect(message.parts.find((p) => p.type === "tool-startFromKit")).toMatchObject({
+      output: { ok: false },
+    });
+    expect(live).toEqual([]);
+    expect(result).toBeUndefined();
   });
 });

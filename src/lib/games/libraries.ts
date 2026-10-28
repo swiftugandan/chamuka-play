@@ -108,12 +108,15 @@ export function libraryById(id: string): GameLibrary {
   return lib;
 }
 
-/** The exact tag to put in a game for a library. */
+/** The exact tag to put in a game for a library. It carries the integrity
+ *  hash, so wherever the game loads it directly (a shared file, the playtest
+ *  VM, or when bundling isn't possible) the browser still checks the file. */
 export function libraryTag(id: string): string {
   const lib = libraryById(id);
+  const checked = `integrity="${lib.integrity}" crossorigin="anonymous"`;
   return lib.kind === "script"
-    ? `<script src="${lib.url}"></script>`
-    : `<link rel="stylesheet" href="${lib.url}">`;
+    ? `<script src="${lib.url}" ${checked}></script>`
+    : `<link rel="stylesheet" href="${lib.url}" ${checked}>`;
 }
 
 /** An external resource a game loads: where it is in the file, and its URL. */

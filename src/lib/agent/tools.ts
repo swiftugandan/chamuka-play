@@ -42,14 +42,7 @@ export function createGameTools(
   // bloat every later request). Keyed by tool call; only this turn's survive.
   const screenshots = new Map<string, string>();
 
-  const publishGame = () =>
-    hooks.onGame({
-      title: workspace.gameTitle,
-      code: workspace.code,
-      revision: workspace.revision,
-      edits: workspace.edits,
-      rewritten: workspace.wasRewritten,
-    });
+  const publishGame = () => hooks.onGame(workspace.snapshot());
 
   return {
     makePlan: tool({
@@ -64,6 +57,17 @@ export function createGameTools(
         "Start a NEW game from a polished, tested starter kit instead of an empty file. Puts the kit in place as the current game and returns it line-numbered, with a map of where things live. Then make it the child's game with editGame (settings, emoji, colours, title, gameplay) — or writeGame for a big redesign that keeps the kit's structure.",
       inputSchema: startFromKitInput,
       execute: async ({ kit }): Promise<StartFromKitOutput> => {
+        if (workspace.hasGame) {
+          return {
+            ok: false,
+            kit,
+            text: "",
+            lines: 0,
+            map: "",
+            message:
+              "There is already a game — change it with editGame (or writeGame for a real redesign). Kits are only for brand-new games.",
+          };
+        }
         const chosen = STARTER_KITS[kit];
         // No name yet: the game's GAME_TITLE setting names it once it's the
         // child's game (workspace.gameTitle).

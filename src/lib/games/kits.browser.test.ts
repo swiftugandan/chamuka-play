@@ -109,6 +109,26 @@ describe.skipIf(!hasBrowser)("starter kits in real Chromium", () => {
     await page.close();
   }, 30_000);
 
+  it("dom-quiz works for word answers too (spelling, trivia), marking the right one", async (ctx) => {
+    if (!ready) return ctx.skip();
+    const words = STARTER_KITS["dom-quiz"].code.replace(
+      'return { text: a + " + " + b, answer: a + b };',
+      'return { text: "Which animal says moo?", answer: "Cow", choices: ["Cow", "Dog", "<b>Duck</b>", "Cat"] };',
+    );
+    expect(words).not.toBe(STARTER_KITS["dom-quiz"].code);
+    const { page, problems } = await open(words, VIEWPORTS[0]);
+    await page.click("#start-button");
+    await page.waitForSelector(".choice:not([disabled])");
+    // Answer text is shown as text, never as HTML.
+    expect(await page.locator(".choice b").count()).toBe(0);
+    await page.locator(".choice", { hasText: "Cow" }).click();
+    await page.waitForSelector(".choice.right");
+    expect(await page.locator(".choice.right").innerText()).toContain("Cow");
+    expect(await page.textContent("#score")).toContain("1");
+    expect(problems).toEqual([]);
+    await page.close();
+  }, 30_000);
+
   for (const viewport of VIEWPORTS) {
     it(`phaser-arcade plays title → play → end → again at ${viewport.width}×${viewport.height}`, async (ctx) => {
       if (!ready) return ctx.skip();
@@ -127,9 +147,14 @@ describe.skipIf(!hasBrowser)("starter kits in real Chromium", () => {
       }
       await page.evaluate(() => (game.scene.getScene("Play") as unknown as { endGame(r: string): void }).endGame("Time's up!"));
       await active("End");
-      await page.waitForTimeout(400);
-      await page.keyboard.press("Space");
-      await active("Play");
+      // Phaser reuses scene objects: replay must work round after round.
+      for (let round = 0; round < 2; round++) {
+        await page.waitForTimeout(400);
+        await page.keyboard.press("Space");
+        await active("Play");
+        await page.evaluate(() => (game.scene.getScene("Play") as unknown as { endGame(r: string): void }).endGame("Time's up!"));
+        await active("End");
+      }
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
       expect(overflow).toBe(false);

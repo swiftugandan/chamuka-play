@@ -12,6 +12,7 @@ import { AGENT_INSTRUCTIONS, turnContext } from "./prompt";
 import {
   AGENT_ERROR_MESSAGE,
   MAX_AGENT_STEPS,
+  type GameDataPart,
   type GameUIMessage,
   type ResultDataPart,
 } from "./protocol";
@@ -46,13 +47,21 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
   let resultSent = false;
   const deadline = Date.now() + TURN_BUDGET_MS;
 
-  const tools = createGameTools(workspace, playtester, {
-    onGame: (game) => input.writer.write({ type: "data-game", data: game, transient: true }),
-    onResult: (result) => {
-      resultSent = true;
-      input.writer.write({ type: "data-result", data: result });
-    },
-  });
+  // The child's device saves the last game it was sent, so a result is only
+  // ever announced after the game it describes (e.g. a kit put in place and
+  // finished without a visible change would otherwise never reach the device).
+  let sentRevision = -1;
+  const sendGame = (game: GameDataPart) => {
+    sentRevision = game.revision;
+    input.writer.write({ type: "data-game", data: game, transient: true });
+  };
+  const sendResult = (result: ResultDataPart) => {
+    if (workspace.hasGame && workspace.revision !== sentRevision) sendGame(workspace.snapshot());
+    resultSent = true;
+    input.writer.write({ type: "data-result", data: result });
+  };
+
+  const tools = createGameTools(workspace, playtester, { onGame: sendGame, onResult: sendResult });
 
   const resolved = isMock() ? null : resolveAgentModel();
   const starter = getStarter(input.starterId);
@@ -115,7 +124,7 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
     // The model ran out of steps or stopped without calling finish after
     // changing the game: still save the child's work.
     if (!resultSent && workspace.changed && !input.abortSignal?.aborted) {
-      input.writer.write({ type: "data-result", data: fallbackResult(workspace) });
+      sendResult(fallbackResult(workspace));
     }
   } finally {
     await playtester.dispose();

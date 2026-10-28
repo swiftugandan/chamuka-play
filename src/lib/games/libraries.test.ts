@@ -16,12 +16,12 @@ describe("game library catalog", () => {
     expect(new Set(GAME_LIBRARIES.map((l) => l.id)).size).toBe(GAME_LIBRARIES.length);
   });
 
-  it("writes the exact tag for each kind", () => {
+  it("writes the exact tag for each kind, with its integrity hash", () => {
     expect(libraryTag("phaser")).toBe(
-      '<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>',
+      '<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js" integrity="sha384-AvQiDMZAVLda3VtAoU5MCfBz8pzXhteb2CiUJeKBmPlWzpXj1uJ96Km11+YuFNu/" crossorigin="anonymous"></script>',
     );
     expect(libraryTag("font-fredoka-700")).toBe(
-      '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5.3.0/700.css">',
+      '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5.3.0/700.css" integrity="sha384-Wws7z/RQOlr/fszMMWybikBuqX9DtYrXp6FcDBRGQFOrBXAfUNOVv1teFg6if9I5" crossorigin="anonymous">',
     );
   });
 

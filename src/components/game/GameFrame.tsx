@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { bundleGame, usesLibraries } from "@/lib/games/bundle";
+import { Mascot } from "@/components/play/Mascot";
 
 /**
  * Where a game runs: a locked-down sandboxed frame (scripts only — no access to
@@ -19,7 +20,16 @@ export function GameFrame({
 }) {
   const runnable = useRunnableGame(code);
   if (runnable === null) {
-    return <div className={className} aria-busy="true" aria-label={`Loading ${title}`} />;
+    // The first time a library game opens, its engine is still arriving.
+    return (
+      <div
+        className={`grid place-items-center ${className ?? ""}`}
+        aria-busy="true"
+        aria-label={`Loading ${title}`}
+      >
+        <Mascot size={72} className="anim-float" />
+      </div>
+    );
   }
   return <iframe title={title} sandbox="allow-scripts" srcDoc={runnable} className={className} />;
 }

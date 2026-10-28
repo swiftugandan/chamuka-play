@@ -225,6 +225,8 @@ class Title extends Phaser.Scene {
   constructor() { super("Title"); }
 
   create() {
+    // Phaser reuses this scene object every time it starts: reset flags here.
+    this.starting = false;
     // Drifting background things, just for fun.
     this.floaters = [];
     for (let i = 0; i < 9; i++) {
@@ -470,6 +472,8 @@ class End extends Phaser.Scene {
   constructor() { super("End"); }
 
   init(data) {
+    // Phaser reuses this scene object every time it starts: reset flags here.
+    this.leaving = false;
     this.finalScore = data.score || 0;
     this.reason = data.reason || "Game over";
   }
@@ -708,8 +712,10 @@ const BIGGEST_NUMBER = 10;     // the biggest number in a sum
 const CHOICES = 4;             // how many answers to pick from
 const NEXT_QUESTION_MS = 900;  // pause after answering
 
-// Make one question. Change this to quiz anything!
-// (For a fixed list, return items from an array instead.)
+// Make one question: the words to show and the right answer. Change this to
+// quiz anything! For words, also give the answers to pick from, e.g.
+//   return { text: "Which animal says moo? 🐄", answer: "Cow", choices: ["Cow", "Dog", "Duck", "Cat"] };
+// (For a fixed list of questions, return them from an array in turn.)
 function makeQuestion() {
   const a = randomInt(1, BIGGEST_NUMBER);
   const b = randomInt(1, BIGGEST_NUMBER);
@@ -747,14 +753,23 @@ function shuffle(list) {
   return list;
 }
 
-// Wrong answers that look believable (close to the right one).
-function makeChoices(answer) {
+// The answers to pick from: the question's own list, or — for a number —
+// believable wrong answers close to the right one.
+function makeChoices(question) {
+  if (Array.isArray(question.choices)) return shuffle(question.choices.slice(0, CHOICES));
+  const answer = Number(question.answer);
   const options = new Set([answer]);
-  while (options.size < CHOICES) {
-    const nearby = answer + randomInt(-4, 4);
+  for (let tries = 0; options.size < CHOICES && tries < 200; tries++) {
+    const nearby = answer + randomInt(-5, 5);
     if (nearby >= 0) options.add(nearby);
   }
+  for (let extra = 1; options.size < CHOICES; extra++) options.add(answer + CHOICES + extra);
   return shuffle(Array.from(options));
+}
+
+// Is this button the right answer? (Compares as text, so words and numbers both work.)
+function isRight(button) {
+  return button.dataset.value === String(state.current.answer);
 }
 
 // Fade one screen out and the next one in.
@@ -806,16 +821,20 @@ function nextQuestion() {
   // Make a button for each answer.
   const box = $("choices");
   box.textContent = "";
-  makeChoices(state.current.answer).forEach((value, i) => {
+  makeChoices(state.current).forEach((value, i) => {
     const button = document.createElement("button");
     button.className = "btn choice";
     button.dataset.value = String(value);
-    button.innerHTML = '<span class="key">' + (i + 1) + "</span>" + value;
+    const key = document.createElement("span");
+    key.className = "key";
+    key.textContent = String(i + 1);
+    button.append(key, String(value));
     button.addEventListener("click", () => answer(button));
     box.appendChild(button);
   });
+  box.querySelector(".choice").focus({ preventScroll: true });
   if (!CALM) {
-    gsap.from("#question", { scale: 0.6, opacity: 0, duration: 0.35, ease: "back.out(2)" });
+    gsap.fromTo("#question", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" });
     gsap.from(".choice", { y: 24, opacity: 0, duration: 0.3, stagger: 0.05, ease: "power2.out" });
   }
 }
@@ -823,10 +842,10 @@ function nextQuestion() {
 function answer(button) {
   if (state.answered) return;
   state.answered = true;
-  const right = Number(button.dataset.value) === state.current.answer;
+  const right = isRight(button);
   document.querySelectorAll(".choice").forEach((b) => {
     b.disabled = true;
-    if (Number(b.dataset.value) === state.current.answer) b.classList.add("right");
+    if (isRight(b)) b.classList.add("right");
   });
 
   if (right) {

@@ -31,6 +31,7 @@ ${LIBRARY_LIST}
 - Game: new Phaser.Game({ type: Phaser.AUTO, parent: "game", transparent: true, scale: { mode: Phaser.Scale.RESIZE }, physics: { default: "arcade" }, scene: [Boot, Title, Play, End] }). The page background (CSS) shows through the transparent canvas.
 - There are no image files. Make every texture in Boot: emojiTexture(scene, key, emoji, size) for characters and items, Graphics + generateTexture for shapes and tiles, dotTexture for particles.
 - Scenes: class Play extends Phaser.Scene { constructor() { super("Play"); } init(data) {} create() {} update(time, delta) {} }. Switch with this.scene.start("End", { score }).
+- Phaser reuses each scene object every time it starts: reset EVERY flag and counter at the top of init() or create() (e.g. this.leaving = false), or the second round breaks.
 - Responsive: read this.scale.width/height; place everything in layout() and call keepLaidOut(this); size UI with uiScale(this). Never assume 800×600.
 - Arcade physics: this.physics.add.image/sprite/group, body.setCircle(r, offsetX, offsetY) for fair round hitboxes, this.physics.add.overlap / collider, setVelocity, setCollideWorldBounds. Pool things that come and go: group.get(x, y, key) then enableBody(true, x, y, true, true); remove with disableBody(true, true).
 - Matter physics (physics: { default: "matter" }) is built in, for rolling, stacking and wobbly games.
@@ -46,6 +47,7 @@ ${LIBRARY_LIST}
 - gsap.to / from / fromTo(targets, { y, scale, opacity, duration, ease: "back.out(1.6)" }); gsap.timeline() for sequences; stagger for lists; animate transform and opacity only.
 - Layout with CSS grid/flex and clamp() sizes so it fits a phone; buttons at least 56px tall (64px+ for main actions).
 - confetti({ particleCount, spread, origin: { y: 0.7 } }) to celebrate wins and streaks.
+- Put text on the page with textContent, never innerHTML.
 
 # Sound — ZzFX, no audio files
 - Keep sounds in one SOUNDS object of ZzFX number lists and play them with zzfx(...SOUNDS.name) inside try/catch.

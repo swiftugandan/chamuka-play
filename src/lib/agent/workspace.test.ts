@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { GameWorkspace, nearestLine, titleFromCode } from "./workspace";
+import { libraryTag } from "@/lib/games/libraries";
 import { MAX_GAME_BYTES } from "./protocol";
 
 const GAME = `<!DOCTYPE html>
@@ -164,7 +165,7 @@ describe("GameWorkspace — libraries", () => {
     const out = ws.write("Stars", page('<script src="https://unpkg.com/phaser"></script>'));
     expect(out.ok).toBe(false);
     expect(out.message).toContain("Not allowed: https://unpkg.com/phaser");
-    expect(out.message).toContain(PHASER);
+    expect(out.message).toContain(libraryTag("phaser")); // the exact tag to copy
     expect(ws.hasGame).toBe(false);
   });
 

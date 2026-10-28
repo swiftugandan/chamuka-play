@@ -18,7 +18,8 @@ const GAME_PAGE_CSP = [
   // jsDelivr: the player fetches the game's catalog libraries to inline them.
   "connect-src 'self' https://cdn.jsdelivr.net",
   "manifest-src 'self' blob:",
-  "worker-src 'self'",
+  // canvas-confetti draws in a worker it creates from a blob: URL.
+  "worker-src 'self' blob:",
   "frame-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

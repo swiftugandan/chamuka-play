@@ -1,6 +1,6 @@
 import { applyEdits } from "@/lib/ai/applyEdits";
 import type { AppliedEdit } from "@/lib/ai/edits";
-import type { EditGameOutput, ReadGameOutput, WriteGameOutput } from "./protocol";
+import type { EditGameOutput, GameDataPart, ReadGameOutput, WriteGameOutput } from "./protocol";
 import { MAX_GAME_BYTES } from "./protocol";
 import { GAME_LIBRARIES, disallowedResources, libraryTag } from "@/lib/games/libraries";
 
@@ -51,6 +51,17 @@ export class GameWorkspace {
    */
   get gameTitle(): string {
     return titleFromCode(this.code) || this.title || "My game";
+  }
+
+  /** The game as the child's device receives it (live preview, then saved). */
+  snapshot(): GameDataPart {
+    return {
+      title: this.gameTitle,
+      code: this.code,
+      revision: this.revision,
+      edits: this.edits,
+      rewritten: this.rewritten,
+    };
   }
 
   /** Whether this work is a brand-new creation (nothing saved before it). */
