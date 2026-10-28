@@ -44,7 +44,7 @@ export function createGameTools(
 
   const publishGame = () =>
     hooks.onGame({
-      title: workspace.title,
+      title: workspace.gameTitle,
       code: workspace.code,
       revision: workspace.revision,
       edits: workspace.edits,
@@ -65,7 +65,9 @@ export function createGameTools(
       inputSchema: startFromKitInput,
       execute: async ({ kit }): Promise<StartFromKitOutput> => {
         const chosen = STARTER_KITS[kit];
-        const result = workspace.write("New game", chosen.code);
+        // No name yet: the game's GAME_TITLE setting names it once it's the
+        // child's game (workspace.gameTitle).
+        const result = workspace.write("", chosen.code);
         if (!result.ok) {
           return { ok: false, kit, text: "", lines: 0, map: "", message: result.message };
         }
@@ -157,7 +159,7 @@ export function createGameTools(
           finished = true;
           hooks.onResult({
             kind: workspace.isNew ? "created" : "changed",
-            title: workspace.title,
+            title: workspace.gameTitle,
             summary,
             edits: workspace.edits,
             suggestions,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { GameWorkspace, nearestLine } from "./workspace";
+import { GameWorkspace, nearestLine, titleFromCode } from "./workspace";
 import { MAX_GAME_BYTES } from "./protocol";
 
 const GAME = `<!DOCTYPE html>
@@ -180,6 +180,29 @@ describe("GameWorkspace — libraries", () => {
     const old = page('<script src="https://cdn.jsdelivr.net/npm/old-lib@1.0.0/x.js"></script><title>a</title>');
     const ws = new GameWorkspace({ title: "Stars", code: old });
     expect(ws.edit([{ find: "<title>a</title>", replace: "<title>b</title>" }]).applied).toBe(1);
+  });
+});
+
+describe("the game's name", () => {
+  it("comes from the GAME_TITLE setting, the one place the kits keep it", () => {
+    const code = `<html><script>const GAME_TITLE = "Bone Catcher"; // the name</script></html>`;
+    expect(titleFromCode(code)).toBe("Bone Catcher");
+    expect(titleFromCode(`const GAME_TITLE = 'Dino \\'Spell\\'';`)).toBe("Dino 'Spell'");
+    expect(titleFromCode("<html></html>")).toBe("");
+  });
+
+  it("follows GAME_TITLE even when the agent never names the game", () => {
+    const ws = new GameWorkspace(null);
+    ws.write("", `<!DOCTYPE html><html><script>const GAME_TITLE = "Star Catcher";</script></html>`);
+    ws.edit([{ find: '"Star Catcher"', replace: '"Bone Catcher"' }]);
+    expect(ws.gameTitle).toBe("Bone Catcher");
+  });
+
+  it("falls back to the given name, then a friendly default", () => {
+    expect(new GameWorkspace({ title: "Old Game", code: "<html></html>" }).gameTitle).toBe("Old Game");
+    const ws = new GameWorkspace(null);
+    ws.write("", "<!DOCTYPE html><html></html>");
+    expect(ws.gameTitle).toBe("My game");
   });
 });
 

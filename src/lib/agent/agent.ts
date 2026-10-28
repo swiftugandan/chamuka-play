@@ -128,7 +128,7 @@ export async function runGameTurn(input: GameTurnInput): Promise<void> {
 function fallbackResult(workspace: GameWorkspace): ResultDataPart {
   return {
     kind: workspace.isNew ? "created" : "changed",
-    title: workspace.title,
+    title: workspace.gameTitle,
     summary: workspace.isNew ? "Here's your game! 🎮" : "All done! ✨",
     edits: workspace.edits,
     suggestions: [],

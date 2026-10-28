@@ -44,6 +44,15 @@ export class GameWorkspace {
     }
   }
 
+  /**
+   * The game's name: its GAME_TITLE setting (the kits show it on the title
+   * screen and in the browser tab, so it is the one source of truth), else the
+   * name it was given, else a friendly default.
+   */
+  get gameTitle(): string {
+    return titleFromCode(this.code) || this.title || "My game";
+  }
+
   /** Whether this work is a brand-new creation (nothing saved before it). */
   get isNew(): boolean {
     return this.resumed ? this.resumed.isNew : this.startCode === "";
@@ -149,6 +158,12 @@ export class GameWorkspace {
       .join("\n");
     return { totalLines: total, text };
   }
+}
+
+/** The GAME_TITLE setting in a game's code, if it has one. Pure. */
+export function titleFromCode(code: string): string {
+  const match = /\bconst GAME_TITLE\s*=\s*(["'])((?:(?!\1)[^\\\n]|\\.)*)\1/.exec(code);
+  return match ? match[2].replace(/\\(.)/g, "$1").trim().slice(0, 60) : "";
 }
 
 /**

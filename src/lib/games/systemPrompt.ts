@@ -70,6 +70,7 @@ ${LIBRARY_LIST}
 - Playtest screenshots may show emoji as empty boxes if the test browser lacks an emoji font — that is the test machine, not the game.
 
 # Structure — a kid will read this code and change it with tiny edits
+- The game's name lives in ONE place, the GAME_TITLE setting; the title screen and the browser tab show it (the kits already do). Rename the game there.
 - Every tunable number, word, emoji and colour lives in the settings block near the top with a clear name and a friendly comment (const JUMP_POWER = 12; // how high you jump). Later the child changes the game by asking for small edits — changing one well-named setting should often be the whole edit.
 - All values that change during play start fresh in one place (Phaser: the top of Play.create(); DOM: one state object made by resetGame()), so replaying always begins from a clean slate.
 - Short functions, clear names, and a friendly one-line comment above each important part.

@@ -90,15 +90,13 @@ export function mockTitle(input: { starterId: string; prompt: string }): string 
 /** Edits that turn a starter kit into the child's game (its title). */
 export function mockKitEdits(kit: StarterKitId, title: string): AppliedEdit[] {
   const safe = clean(title);
-  if (kit === "phaser-arcade") {
-    return [
-      { find: "<title>Star Catcher</title>", replace: `<title>${safe}</title>` },
-      { find: 'const GAME_TITLE = "Star Catcher";', replace: `const GAME_TITLE = "${safe}";`, because: "Your game's name! ✨" },
-    ];
-  }
+  const name = kit === "phaser-arcade" ? "Star Catcher" : "Math Quest";
   return [
-    { find: "<title>Math Quest</title>", replace: `<title>${safe}</title>` },
-    { find: '<h1 id="game-title">Math Quest</h1>', replace: `<h1 id="game-title">${safe}</h1>`, because: "Your game's name! ✨" },
+    {
+      find: `const GAME_TITLE = "${name}";`,
+      replace: `const GAME_TITLE = "${safe}";`,
+      because: "Your game's name! ✨",
+    },
   ];
 }
 

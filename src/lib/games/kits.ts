@@ -69,6 +69,8 @@ const FALL_SPEED_MAX = 560;     // ...and how fast they can get
 const SPAWN_EVERY_MS = 650;     // a new thing appears this often (smaller = more)
 const BAD_CHANCE = 0.28;        // 0.28 means about 1 in 4 things is bad
 
+document.title = GAME_TITLE; // the browser tab shows the game's name too
+
 // The game's colours, in one place.
 const COLORS = {
   text: "#ffffff",
@@ -700,6 +702,7 @@ ${libraryTag("confetti")}
 // =====================================================================
 //  🎮 GAME SETTINGS — change these to change the game!
 // =====================================================================
+const GAME_TITLE = "Math Quest"; // the game's name
 const QUESTION_COUNT = 10;     // how many questions in one quest
 const BIGGEST_NUMBER = 10;     // the biggest number in a sum
 const CHOICES = 4;             // how many answers to pick from
@@ -872,6 +875,8 @@ function endGame() {
 // =====================================================================
 //  🎛️ CONTROLS — set up once
 // =====================================================================
+document.title = GAME_TITLE;
+$("game-title").textContent = GAME_TITLE;
 $("start-button").addEventListener("click", startGame);
 $("again-button").addEventListener("click", startGame);
 document.addEventListener("keydown", (event) => {
@@ -901,7 +906,7 @@ export const STARTER_KITS: Record<StarterKitId, StarterKit> = {
     bestFor:
       "Anything that moves: catch, dodge, clicker/tap, maze, platformer, runner, shooter, sports, physics toys.",
     map: [
-      "GAME SETTINGS: title, how-to line, the emoji for the player/good/bad things, speeds, timings, lives.",
+      "GAME SETTINGS: GAME_TITLE (the game's name, shown everywhere), how-to line, the emoji for the player/good/bad things, speeds, timings, lives.",
       "COLORS and SOUNDS (ZzFX number lists) right below.",
       "HELPERS: textStyle, emojiTexture (any emoji becomes a sprite), dotTexture, roundBoxTexture, makeButton, uiScale (fits phones and big screens), keepLaidOut (layout on resize).",
       "Scenes: Boot (makes textures, waits for the font) → Title → Play (the game: create/layout/update, spawn from a pool, overlap callbacks, sparkles, score pop, shake on hurt, countdown) → End (score count-up, best score, Play again).",
@@ -917,7 +922,7 @@ export const STARTER_KITS: Record<StarterKitId, StarterKit> = {
     map: [
       "<style>: design tokens in :root (colours, radius), .screen (title/play/end), .card, .btn (toy buttons), .choices grid.",
       "Three <section class=\"screen\"> blocks: #title-screen, #play-screen, #end-screen.",
-      "GAME SETTINGS + makeQuestion() — change this to quiz anything (or return items from a list).",
+      "GAME SETTINGS: GAME_TITLE (the game's name — the <h1> and browser tab follow it), counts, and makeQuestion() — change this to quiz anything (or return items from a list).",
       "SOUNDS (ZzFX), helpers (showScreen with GSAP, celebrate with confetti, shuffle).",
       "The game: resetGame → startGame → nextQuestion → answer → endGame; one state object.",
       "CONTROLS: listeners set up once at the bottom (buttons + keys 1-4, Enter/Space).",

@@ -6,8 +6,9 @@ import type { SharedV3ProviderOptions } from "@ai-sdk/provider";
 
 /** The agent's default brain: strong at code, tool use, and reading screenshots. */
 export const DEFAULT_AGENT_MODEL = "anthropic/claude-sonnet-5.5";
-/** Small and cheap — only writes three short example ideas. */
-export const DEFAULT_EXAMPLES_MODEL = "google/gemini-2.5-flash-lite";
+/** Small and cheap — only writes three short example ideas. On the same
+ *  provider as the agent, so one key (or the Gateway) runs everything. */
+export const DEFAULT_EXAMPLES_MODEL = "anthropic/claude-haiku-5.5";
 
 export interface ResolvedModel {
   model: LanguageModel;

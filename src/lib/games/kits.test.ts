@@ -23,6 +23,9 @@ describe("starter kits", () => {
 
       it("has a settings block a child can tweak, and sound", () => {
         expect(kit.code).toContain("GAME SETTINGS");
+        // The game's name lives in one setting; the page and tab follow it.
+        expect(kit.code).toMatch(/const GAME_TITLE = "[^"]+";/);
+        expect(kit.code).toContain("document.title = GAME_TITLE;");
         expect(kit.code).toContain("const SOUNDS = {");
         expect(kit.code).toContain("zzfxX.resume()");
         expect(kit.code).toMatch(/prefers-reduced-motion/);
