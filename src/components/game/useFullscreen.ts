@@ -42,30 +42,59 @@ async function leaveNative() {
 }
 
 /**
+ * Takes everything but `keep` out of reach — of the keyboard and screen
+ * readers — the way a dialog does: every sibling of `keep` and of each of its
+ * ancestors becomes inert. Returns the undo. Leaves alone what was inert already.
+ */
+function inertAllBut(keep: HTMLElement): () => void {
+  const changed: HTMLElement[] = [];
+  for (let node: HTMLElement | null = keep; node && node !== document.body; node = node.parentElement) {
+    for (const sibling of node.parentElement?.children ?? []) {
+      if (sibling === node || !(sibling instanceof HTMLElement) || sibling.hasAttribute("inert")) continue;
+      sibling.setAttribute("inert", "");
+      changed.push(sibling);
+    }
+  }
+  return () => changed.forEach((el) => el.removeAttribute("inert"));
+}
+
+/**
  * Lets one element — the game's stage — fill the screen, and follows the
  * browser when the child leaves full screen its own way (Escape, the back
- * gesture, iPad's ✕). Keyboard focus moves into the game on the way in, so its
- * controls work at once, and back to where it was on the way out.
+ * gesture, iPad's ✕). While full screen, the page behind is out of reach;
+ * keyboard focus moves into the game on the way in, so its controls work at
+ * once, and back to where it was on the way out.
  */
 export function useFullscreen(): Fullscreen {
   const [node, setNode] = useState<HTMLDivElement | null>(null);
   const [requested, setRequested] = useState<FullscreenMode>("off");
   const returnFocus = useRef<HTMLElement | null>(null);
-  // Nothing is full screen once the stage is gone.
   const mode: FullscreenMode = node ? requested : "off";
+  const active = mode !== "off";
 
-  // Follow the browser in and out of its full screen.
+  // A stage that goes away takes its full screen with it, so a later stage
+  // never starts out full screen.
+  const stageRef = useCallback((next: HTMLDivElement | null) => {
+    setNode(next);
+    if (!next) setRequested("off");
+  }, []);
+
+  // Follow the browser in and out of its full screen. A refusal that arrives
+  // as an event (older Safari doesn't reject) falls back to covering the page.
   useEffect(() => {
     const sync = () =>
       setRequested((current) =>
         node && fullscreenElement() === node ? "native" : current === "native" ? "off" : current,
       );
-    document.addEventListener("fullscreenchange", sync);
-    document.addEventListener("webkitfullscreenchange", sync);
-    return () => {
-      document.removeEventListener("fullscreenchange", sync);
-      document.removeEventListener("webkitfullscreenchange", sync);
-    };
+    const refused = () => setRequested((current) => (current === "off" ? "page" : current));
+    const events = [
+      ["fullscreenchange", sync],
+      ["webkitfullscreenchange", sync],
+      ["fullscreenerror", refused],
+      ["webkitfullscreenerror", refused],
+    ] as const;
+    events.forEach(([type, listener]) => document.addEventListener(type, listener));
+    return () => events.forEach(([type, listener]) => document.removeEventListener(type, listener));
   }, [node]);
 
   // A stage taken away while full screen must not leave the browser there.
@@ -76,25 +105,22 @@ export function useFullscreen(): Fullscreen {
     [node],
   );
 
-  // Covering the page: nothing behind may scroll, and Escape leaves (when the
-  // game itself has the keyboard, the ✕ button does).
+  // Covering the page: nothing behind may scroll. (There's no Escape here: the
+  // game has the keyboard, and its keys never reach this page — the ✕ leaves.)
   useEffect(() => {
     if (mode !== "page") return;
     const root = document.documentElement;
     const before = root.style.overflow;
     root.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRequested("off");
-    };
-    document.addEventListener("keydown", onKey);
     return () => {
       root.style.overflow = before;
-      document.removeEventListener("keydown", onKey);
     };
   }, [mode]);
 
+  // While full screen, only the game (and its ✕) can be reached.
+  useEffect(() => (active && node ? inertAllBut(node) : undefined), [active, node]);
+
   // Focus: into the game on the way in, back where it was on the way out.
-  const active = mode !== "off";
   const wasActive = useRef(false);
   useEffect(() => {
     if (active && !wasActive.current) node?.querySelector("iframe")?.focus();
@@ -114,8 +140,11 @@ export function useFullscreen(): Fullscreen {
     const request = el.requestFullscreen ?? el.webkitRequestFullscreen;
     if (request && (doc.fullscreenEnabled ?? doc.webkitFullscreenEnabled)) {
       try {
+        // Called straight from the tap, so it counts as the child's gesture.
         await request.call(el, { navigationUI: "hide" });
-        setRequested("native");
+        // Where the request has no promise (older Safari) this is too early to
+        // tell: the change (or error) event settles it.
+        if (fullscreenElement() === node) setRequested("native");
         return;
       } catch {
         // Refused (a policy, or an old browser): cover the page instead.
@@ -131,5 +160,5 @@ export function useFullscreen(): Fullscreen {
 
   const toggle = useCallback(() => void (active ? exit() : enter()), [active, enter, exit]);
 
-  return { stageRef: setNode, mode, active, enter, exit, toggle };
+  return { stageRef, mode, active, enter, exit, toggle };
 }

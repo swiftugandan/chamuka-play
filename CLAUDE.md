@@ -205,9 +205,12 @@ anywhere but this sandboxed iframe (or the playtest VM).
 wraps `GameFrame` in the studio and the player; `useFullscreen` puts that stage
 in the browser's real full screen, or covers the page where the browser refuses
 (iPhone Safari), and follows the browser back out (Escape, back gesture). The
-frame is never remounted, so the game keeps playing. Installed game apps ask for
-full screen in their manifest (`display_override`), so `isStandalone` counts
-`display-mode: fullscreen` as installed — unless a page element is full screen.
+frame is never remounted, so the game keeps playing; while full screen the rest
+of the page is `inert`. Installed game apps ask for full screen in their manifest
+(`display_override`) and open at a marked start address (`/play/<id>?app`,
+`withLaunchMark`). A browser tab can be full screen too (F11), so `isStandalone`
+counts `display-mode: fullscreen` as installed only with that mark — and never
+while a page element is full screen. The mark never goes in the tab's address.
 
 ### Key modules
 

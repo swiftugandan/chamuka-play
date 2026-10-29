@@ -319,10 +319,9 @@
 }
 .game-stage[data-fullscreen] {
   position: fixed;
+  /* inset alone (no width/height): on iPhone it stops at the visible screen. */
   inset: 0;
   z-index: 60;
-  width: 100%;
-  height: 100%;
   margin: 0;
   background: #000;
   /* Keep the game clear of notches and rounded corners. */

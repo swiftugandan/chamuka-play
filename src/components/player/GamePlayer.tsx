@@ -54,7 +54,9 @@ export function GamePlayer() {
   if (loaded.state === "missing") return <GameMissing />;
 
   return (
-    <main className="flex h-dvh flex-col pt-[env(safe-area-inset-top)]">
+    // An installed game app opens full screen, so keep clear of notches and
+    // cutouts on every side.
+    <main className="flex h-dvh flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
       {/* React hoists this into <head>, so Next's metadata can't reset it. */}
       <title>{loaded.game.title}</title>
       <PlayerBar title={loaded.game.title} onFullscreen={fullscreen.enter} />

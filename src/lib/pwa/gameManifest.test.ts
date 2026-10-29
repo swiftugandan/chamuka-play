@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gameManifest, shortName } from "./gameManifest";
+import { gameManifest, hasLaunchMark, shortName, withLaunchMark } from "./gameManifest";
 
 const icons = { any192: "data:a", any512: "data:b", maskable512: "data:c" };
 
@@ -18,7 +18,8 @@ describe("gameManifest", () => {
       id: "https://play.example/play/abc",
       name: "Bunny Hop",
       short_name: "Bunny Hop",
-      start_url: "https://play.example/play/abc#g=1.xyz",
+      // Marked as the app's own launch, before the game it carries.
+      start_url: "https://play.example/play/abc?app#g=1.xyz",
       scope: "https://play.example/play/abc",
       display_override: ["fullscreen"],
       display: "standalone",
@@ -35,5 +36,16 @@ describe("gameManifest", () => {
     expect(shortName("Bunny Hop")).toBe("Bunny Hop");
     expect(shortName("The Great Carrot Chase")).toBe("The Great");
     expect(shortName("Supercalifragilistic")).toBe("Supercalifra");
+  });
+});
+
+describe("the installed app's launch mark", () => {
+  it("goes before any game data, and is recognised", () => {
+    expect(withLaunchMark("/play/abc")).toBe("/play/abc?app");
+    expect(withLaunchMark("/play/abc#g=1.xyz")).toBe("/play/abc?app#g=1.xyz");
+    expect(withLaunchMark("/play/abc?x=1")).toBe("/play/abc?x=1&app");
+    expect(hasLaunchMark("?app")).toBe(true);
+    expect(hasLaunchMark("?x=1&app")).toBe(true);
+    expect(hasLaunchMark("")).toBe(false);
   });
 });

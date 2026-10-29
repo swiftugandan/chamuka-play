@@ -58,18 +58,27 @@ describe("isStandalone", () => {
   afterEach(() => {
     window.matchMedia = realMatchMedia;
     delete (document as { fullscreenElement?: Element | null }).fullscreenElement;
+    window.history.replaceState(null, "", "/");
   });
 
-  it("is an app when installed as one, standalone or full screen", () => {
+  it("is an app when installed as one, standalone or opened full screen", () => {
     displayMode("standalone");
     expect(isStandalone()).toBe(true);
-    displayMode("fullscreen"); // a game app opens full screen
+    window.history.replaceState(null, "", "/play/abc?app"); // a game app's launch
+    displayMode("fullscreen");
     expect(isStandalone()).toBe(true);
+  });
+
+  it("isn't an app in a full-screen browser tab (F11)", () => {
+    window.history.replaceState(null, "", "/play/abc");
+    displayMode("fullscreen");
+    expect(isStandalone()).toBe(false);
   });
 
   it("isn't an app in a browser tab, even with the game full screen", () => {
     displayMode("browser");
     expect(isStandalone()).toBe(false);
+    window.history.replaceState(null, "", "/play/abc?app"); // e.g. "open in browser"
     displayMode("fullscreen");
     elementFullscreen(true); // the Full screen button, not an installed app
     expect(isStandalone()).toBe(false);

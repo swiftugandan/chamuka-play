@@ -1,5 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
+import { hasLaunchMark } from "./gameManifest";
 
 /**
  * Installing as an app, across browsers. Chromium hands the page a
@@ -83,9 +84,10 @@ export function isStandalone(): boolean {
   return (
     installedNow ||
     window.matchMedia?.("(display-mode: standalone)").matches === true ||
-    // Game apps open full screen. A browser tab showing one element full screen
-    // (the Full screen button) matches too, but that isn't an installed app.
-    (window.matchMedia?.("(display-mode: fullscreen)").matches === true &&
+    // Game apps open full screen. A browser tab can be full screen too (F11, or
+    // the game's Full screen button), so only the app's own launch counts.
+    (hasLaunchMark(location.search) &&
+      window.matchMedia?.("(display-mode: fullscreen)").matches === true &&
       !document.fullscreenElement) ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );

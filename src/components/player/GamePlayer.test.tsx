@@ -65,7 +65,7 @@ describe("GamePlayer", () => {
       expect(await manifest()).toMatchObject({
         name: "Bunny Hop",
         id: "http://localhost:3000/play/abc",
-        start_url: "http://localhost:3000/play/abc",
+        start_url: "http://localhost:3000/play/abc?app",
         scope: "http://localhost:3000/play/abc",
         display: "standalone",
       }),
@@ -94,8 +94,10 @@ describe("GamePlayer", () => {
     expect(await screen.findByTitle("Comet")).toBeInTheDocument();
     // The installed app must be able to start without this browser's storage.
     await waitFor(async () =>
-      expect((await manifest())?.start_url).toBe(`http://localhost:3000/play/xyz#g=${data}`),
+      expect((await manifest())?.start_url).toBe(`http://localhost:3000/play/xyz?app#g=${data}`),
     );
+    // Only the installed app opens with the launch mark — never this tab.
+    expect(location.search).toBe("");
   });
 
   it("explains when the game isn't here", async () => {

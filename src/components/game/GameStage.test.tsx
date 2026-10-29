@@ -83,27 +83,78 @@ describe("GameStage + useFullscreen", () => {
     expect(screen.getByTitle("Bunny Hop")).toBe(frame);
   });
 
-  it("leaves the covered page with Escape", async () => {
-    render(<Harness />);
+  it("puts the page behind out of reach while full screen, and gives it back", async () => {
+    render(
+      <>
+        <a href="#elsewhere">Elsewhere</a>
+        <Harness />
+      </>,
+    );
+    const elsewhere = screen.getByRole("link", { name: "Elsewhere" });
+    elsewhere.setAttribute("data-was", "reachable");
+    const toggle = screen.getByRole("button", { name: "Play full screen" });
+    fireEvent.click(toggle);
+    await waitFor(() => expect(mode()).toBe("page"));
+
+    // Shift+Tab out of the game can't land on hidden buttons behind it.
+    expect(toggle).toHaveAttribute("inert");
+    expect(elsewhere).toHaveAttribute("inert");
+    expect(stage()).not.toHaveAttribute("inert");
+    expect(screen.getByTitle("Bunny Hop").closest("[inert]")).toBeNull();
+    expect(screen.getByRole("button", { name: "Leave full screen" }).closest("[inert]")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Leave full screen" }));
+    await waitFor(() => expect(mode()).toBe("off"));
+    expect(document.querySelectorAll("[inert]")).toHaveLength(0);
+  });
+
+  it("leaves alone what was out of reach already", async () => {
+    render(
+      <>
+        <div data-testid="closed-drawer" inert>
+          <button>Hidden</button>
+        </div>
+        <Harness />
+      </>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
     await waitFor(() => expect(mode()).toBe("page"));
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Leave full screen" }));
     await waitFor(() => expect(mode()).toBe("off"));
+    expect(screen.getByTestId("closed-drawer")).toHaveAttribute("inert");
+  });
+
+  it("doesn't start a later game full screen", async () => {
+    const { rerender } = render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
+    await waitFor(() => expect(mode()).toBe("page"));
+    rerender(<Harness showStage={false} />);
+    await waitFor(() => expect(mode()).toBe("off"));
+    rerender(<Harness />);
+    expect(mode()).toBe("off");
+    expect(stage()).not.toHaveAttribute("data-fullscreen");
+    expect(document.documentElement.style.overflow).toBe("");
   });
 
   it("uses the browser's real full screen when it has one, and follows it back out", async () => {
     const browser = browserFullscreen();
     render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
+    const toggle = screen.getByRole("button", { name: "Play full screen" });
+    toggle.focus();
+    fireEvent.click(toggle);
 
     await waitFor(() => expect(stage()).toHaveAttribute("data-fullscreen", "native"));
     expect(browser.request).toHaveBeenCalledTimes(1);
     expect(browser.request.mock.contexts[0]).toBe(stage());
+    expect(document.activeElement).toBe(screen.getByTitle("Bunny Hop"));
+    expect(toggle).toHaveAttribute("inert");
     expect(document.documentElement.style.overflow).toBe(""); // the browser handles it
 
     browser.leaveFromBrowser();
     await waitFor(() => expect(mode()).toBe("off"));
     expect(stage()).not.toHaveAttribute("data-fullscreen");
+    expect(toggle).not.toHaveAttribute("inert");
+    expect(document.activeElement).toBe(toggle);
   });
 
   it("leaves the browser's full screen from the ✕ button", async () => {
@@ -114,6 +165,24 @@ describe("GameStage + useFullscreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Leave full screen" }));
     await waitFor(() => expect(mode()).toBe("off"));
     expect(browser.exit).toHaveBeenCalledTimes(1);
+  });
+
+  it("covers the page when older Safari refuses with an event instead of an error", async () => {
+    // Prefixed API: no promise, no throw — just a webkitfullscreenerror later.
+    Object.defineProperty(document, "webkitFullscreenEnabled", { configurable: true, get: () => true });
+    const request = vi.fn(() => {
+      setTimeout(() => document.dispatchEvent(new Event("webkitfullscreenerror")), 0);
+    });
+    (HTMLElement.prototype as { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen = request;
+    try {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
+      await waitFor(() => expect(mode()).toBe("page"));
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (document as { webkitFullscreenEnabled?: boolean }).webkitFullscreenEnabled;
+      delete (HTMLElement.prototype as { webkitRequestFullscreen?: unknown }).webkitRequestFullscreen;
+    }
   });
 
   it("covers the page instead when the browser refuses", async () => {
