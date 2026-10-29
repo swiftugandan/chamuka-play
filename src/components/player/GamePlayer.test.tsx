@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { db } from "@/lib/storage/db";
 import { encodeGameSnapshot } from "@/lib/share/gameLink";
 import { readFileText } from "@/lib/share/readFile";
@@ -71,6 +71,19 @@ describe("GamePlayer", () => {
       }),
     );
     expect(document.head.querySelector('link[rel="apple-touch-icon"]')).not.toBeNull();
+  });
+
+  it("plays the game full screen from the bar, without restarting it", async () => {
+    await db.versions.put(saved);
+    visit("/play/abc");
+    render(<GamePlayer />);
+    const frame = await screen.findByTitle("Bunny Hop");
+    fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
+    // jsdom has no Fullscreen API, so the game covers the page (as on iPhone).
+    await waitFor(() => expect(frame.parentElement).toHaveAttribute("data-fullscreen", "page"));
+    expect(screen.getByTitle("Bunny Hop")).toBe(frame);
+    fireEvent.click(screen.getByRole("button", { name: "Leave full screen" }));
+    await waitFor(() => expect(frame.parentElement).not.toHaveAttribute("data-fullscreen"));
   });
 
   it("plays the copy in the link when the game isn't on this device", async () => {

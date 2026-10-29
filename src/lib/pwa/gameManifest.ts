@@ -27,6 +27,9 @@ export function gameManifest(input: GameManifestInput) {
     description: "A game made with Chamuka Play.",
     start_url: at(input.startUrl),
     scope: at(input.path),
+    // A game app opens full screen, like a game from the store, where the
+    // browser can (Android, desktop Chromium); elsewhere as a standalone app.
+    display_override: ["fullscreen"],
     display: "standalone",
     background_color: input.backgroundColor,
     theme_color: input.themeColor,

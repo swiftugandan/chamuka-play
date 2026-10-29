@@ -78,10 +78,15 @@ if (typeof window !== "undefined") {
   });
 }
 
-function isStandalone(): boolean {
+/** Whether this page is running as an installed app right now. */
+export function isStandalone(): boolean {
   return (
     installedNow ||
     window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    // Game apps open full screen. A browser tab showing one element full screen
+    // (the Full screen button) matches too, but that isn't an installed app.
+    (window.matchMedia?.("(display-mode: fullscreen)").matches === true &&
+      !document.fullscreenElement) ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
@@ -97,11 +102,13 @@ function currentMode(): InstallMode {
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  const media = window.matchMedia?.("(display-mode: standalone)");
-  media?.addEventListener?.("change", listener);
+  const media = ["standalone", "fullscreen"].map((m) => window.matchMedia?.(`(display-mode: ${m})`));
+  media.forEach((q) => q?.addEventListener?.("change", listener));
+  document.addEventListener("fullscreenchange", listener);
   return () => {
     listeners.delete(listener);
-    media?.removeEventListener?.("change", listener);
+    media.forEach((q) => q?.removeEventListener?.("change", listener));
+    document.removeEventListener("fullscreenchange", listener);
   };
 }
 

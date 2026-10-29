@@ -13,7 +13,7 @@ beforeEach(() => {
 
 describe("PlayerBar", () => {
   it("offers the browser's install prompt, then says where the app went", async () => {
-    render(<PlayerBar title="Bunny Hop" />);
+    render(<PlayerBar title="Bunny Hop" onFullscreen={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: /make it an app/i }));
     expect(state.install).toHaveBeenCalledOnce();
     expect(await screen.findByRole("status")).toHaveTextContent("Look for “Bunny Hop” with your apps");
@@ -21,23 +21,26 @@ describe("PlayerBar", () => {
 
   it("shows the steps where the browser has no prompt, and can hide them", () => {
     state.mode = "ios";
-    render(<PlayerBar title="Bunny Hop" />);
+    render(<PlayerBar title="Bunny Hop" onFullscreen={() => {}} />);
     expect(screen.getByText(/add to home screen/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /hide these steps/i }));
     expect(screen.queryByText(/add to home screen/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /chamuka play/i })).toBeInTheDocument();
   });
 
-  it("only offers the way back where installing isn't possible", () => {
+  it("offers only the way back and full screen where installing isn't possible", () => {
     state.mode = "unsupported";
-    render(<PlayerBar title="Bunny Hop" />);
+    const onFullscreen = vi.fn();
+    render(<PlayerBar title="Bunny Hop" onFullscreen={onFullscreen} />);
     expect(screen.getByRole("link", { name: /chamuka play/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Play full screen"]);
+    fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
+    expect(onFullscreen).toHaveBeenCalledTimes(1);
   });
 
   it("gets out of the way once the game runs as an app", () => {
     state.mode = "installed";
-    const { container } = render(<PlayerBar title="Bunny Hop" />);
+    const { container } = render(<PlayerBar title="Bunny Hop" onFullscreen={() => {}} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

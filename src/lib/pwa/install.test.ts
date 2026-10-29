@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { installMode } from "./install";
+import { describe, it, expect, afterEach } from "vitest";
+import { installMode, isStandalone } from "./install";
 
 const env = (userAgent: string, extra: Partial<Parameters<typeof installMode>[0]> = {}) =>
   installMode({ standalone: false, canPrompt: false, userAgent, maxTouchPoints: 0, ...extra });
@@ -40,5 +40,38 @@ describe("installMode", () => {
 
   it("offers nothing where web apps can't be installed", () => {
     expect(env(UA.firefoxDesktop)).toBe("unsupported");
+  });
+});
+
+describe("isStandalone", () => {
+  const realMatchMedia = window.matchMedia;
+  function displayMode(mode: "browser" | "standalone" | "fullscreen") {
+    window.matchMedia = ((query: string) =>
+      ({ matches: query === `(display-mode: ${mode})` }) as MediaQueryList) as typeof window.matchMedia;
+  }
+  function elementFullscreen(on: boolean) {
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => (on ? document.body : null),
+    });
+  }
+  afterEach(() => {
+    window.matchMedia = realMatchMedia;
+    delete (document as { fullscreenElement?: Element | null }).fullscreenElement;
+  });
+
+  it("is an app when installed as one, standalone or full screen", () => {
+    displayMode("standalone");
+    expect(isStandalone()).toBe(true);
+    displayMode("fullscreen"); // a game app opens full screen
+    expect(isStandalone()).toBe(true);
+  });
+
+  it("isn't an app in a browser tab, even with the game full screen", () => {
+    displayMode("browser");
+    expect(isStandalone()).toBe(false);
+    displayMode("fullscreen");
+    elementFullscreen(true); // the Full screen button, not an installed app
+    expect(isStandalone()).toBe(false);
   });
 });

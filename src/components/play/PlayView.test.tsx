@@ -622,6 +622,24 @@ describe("PlayView studio", () => {
     expect(screen.queryByRole("dialog", { name: "Share your game!" })).not.toBeInTheDocument();
   });
 
+  it("plays the game full screen, and back, without restarting it", async () => {
+    render(<PlayView game={open(current)} onNewGame={() => {}} onUpdated={() => {}} />);
+    const frame = await screen.findByTitle("Stars");
+    fireEvent.click(screen.getByRole("button", { name: "Play full screen" }));
+    await waitFor(() => expect(frame.parentElement).toHaveAttribute("data-fullscreen", "page"));
+    expect(screen.getByTitle("Stars")).toBe(frame);
+    fireEvent.click(screen.getByRole("button", { name: "Leave full screen" }));
+    await waitFor(() => expect(frame.parentElement).not.toHaveAttribute("data-fullscreen"));
+    expect(screen.getByTitle("Stars")).toBe(frame);
+  });
+
+  it("offers full screen only once there is a game to play", async () => {
+    await db.versions.clear();
+    render(<PlayView game={open(null)} onNewGame={() => {}} onUpdated={() => {}} />);
+    await screen.findByText(/tell mishi your idea again/i);
+    expect(screen.queryByRole("button", { name: "Play full screen" })).not.toBeInTheDocument();
+  });
+
   it("has nothing to share before the first build is saved", async () => {
     await db.versions.clear();
     await db.drafts.put({

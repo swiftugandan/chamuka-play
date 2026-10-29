@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, Share2, Undo2 } from "lucide-react";
+import { ArrowLeft, Maximize, Share2, Undo2 } from "lucide-react";
 import {
   deleteVersionsAfter,
   getChat,
@@ -20,6 +20,8 @@ import type { GameUIMessage } from "@/lib/agent/protocol";
 import { getStarter } from "@/lib/games/registry";
 import { BuildStage } from "./BuildStage";
 import { GameFrame } from "@/components/game/GameFrame";
+import { GameStage } from "@/components/game/GameStage";
+import { useFullscreen } from "@/components/game/useFullscreen";
 import { ChangeDrawer } from "./ChangeDrawer";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ShareDialog } from "./ShareDialog";
@@ -131,6 +133,7 @@ function Studio({
   // Asking before Mishi's unfinished work is thrown away.
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const fullscreen = useFullscreen();
 
   const agent = useGameAgent({
     gameId: game.gameId,
@@ -256,7 +259,7 @@ function Studio({
             <span className="truncate">{title}</span>
           </span>
 
-          {(canUndo || canShare) && (
+          {(canUndo || canShare || shown) && (
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {canUndo && (
                 <button
@@ -280,17 +283,30 @@ function Studio({
                   <span className="hidden sm:inline">Share</span>
                 </button>
               )}
+              {shown && (
+                <button
+                  onClick={fullscreen.toggle}
+                  aria-label="Play full screen"
+                  className="btn-toy font-display inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2.5 text-sm font-semibold text-ink"
+                  style={{ "--toy-depth": "#e6daf7" } as React.CSSProperties}
+                >
+                  <Maximize size={18} />
+                  <span className="hidden sm:inline">Full screen</span>
+                </button>
+              )}
             </div>
           )}
         </div>
 
         <div className="console-shell rounded-toy-xl relative flex min-h-0 flex-1 p-2.5 sm:p-3">
           {shown ? (
-            <GameFrame
-              title={title}
-              code={shown.code}
-              className="console-screen min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl"
-            />
+            <GameStage fullscreen={fullscreen} className="min-h-0 w-full flex-1">
+              <GameFrame
+                title={title}
+                code={shown.code}
+                className="console-screen min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl"
+              />
+            </GameStage>
           ) : (
             <div className="console-screen flex min-h-0 w-full flex-1 rounded-2xl sm:rounded-3xl">
               <BuildStage

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Download, X } from "lucide-react";
+import { ArrowLeft, Download, Maximize, X } from "lucide-react";
 import { useInstall } from "@/lib/pwa/install";
 import { InstallSteps } from "@/components/install/InstallSteps";
 
@@ -10,7 +10,7 @@ import { InstallSteps } from "@/components/install/InstallSteps";
  * and the offer to keep this game as its own app. Hidden once the game runs as
  * an installed app — then it's just the game.
  */
-export function PlayerBar({ title }: { title: string }) {
+export function PlayerBar({ title, onFullscreen }: { title: string; onFullscreen: () => void }) {
   const { mode, install } = useInstall();
   const [dismissed, setDismissed] = useState(false);
   const [justInstalled, setJustInstalled] = useState(false);
@@ -31,6 +31,15 @@ export function PlayerBar({ title }: { title: string }) {
         <span className="font-display ml-1 min-w-0 flex-1 truncate text-base font-bold text-ink">
           {title}
         </span>
+        <button
+          type="button"
+          onClick={onFullscreen}
+          aria-label="Play full screen"
+          className="font-display inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 text-sm font-semibold text-ink hover:bg-cloud"
+        >
+          <Maximize size={18} aria-hidden="true" />
+          <span className="hidden sm:inline">Full screen</span>
+        </button>
         {offer && mode === "prompt" && (
           <button
             type="button"

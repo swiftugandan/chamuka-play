@@ -20,6 +20,7 @@ describe("gameManifest", () => {
       short_name: "Bunny Hop",
       start_url: "https://play.example/play/abc#g=1.xyz",
       scope: "https://play.example/play/abc",
+      display_override: ["fullscreen"],
       display: "standalone",
       theme_color: "#45b6fe",
     });
