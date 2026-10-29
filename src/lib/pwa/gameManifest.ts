@@ -17,6 +17,26 @@ export interface GameManifestInput {
   icons: { any192: string; any512: string; maskable512: string };
 }
 
+/**
+ * Marks the address an installed game app opens at (`/play/abc?app`), so the
+ * page can tell it was launched as the app — the only reliable sign once the
+ * app runs full screen, since a browser tab can be full screen too (F11).
+ */
+const LAUNCH_PARAM = "app";
+
+/** The start address with the launch mark, before any `#g=…` game data. Pure. */
+export function withLaunchMark(url: string): string {
+  const hash = url.indexOf("#");
+  const [path, fragment] = hash < 0 ? [url, ""] : [url.slice(0, hash), url.slice(hash)];
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}${LAUNCH_PARAM}${fragment}`;
+}
+
+/** Whether this page was opened from an installed game app. Pure. */
+export function hasLaunchMark(search: string): boolean {
+  return new URLSearchParams(search).has(LAUNCH_PARAM);
+}
+
 export function gameManifest(input: GameManifestInput) {
   const at = (path: string) => new URL(path, input.origin).href;
   return {
@@ -25,8 +45,11 @@ export function gameManifest(input: GameManifestInput) {
     name: input.title,
     short_name: shortName(input.title),
     description: "A game made with Chamuka Play.",
-    start_url: at(input.startUrl),
+    start_url: at(withLaunchMark(input.startUrl)),
     scope: at(input.path),
+    // A game app opens full screen, like a game from the store, where the
+    // browser supports it (e.g. Android); elsewhere as a standalone app.
+    display_override: ["fullscreen"],
     display: "standalone",
     background_color: input.backgroundColor,
     theme_color: input.themeColor,

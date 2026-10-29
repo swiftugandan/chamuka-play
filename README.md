@@ -16,7 +16,8 @@ self-hostable.
    for quiz and card games, ZzFX sound, confetti, friendly fonts): it shares a plan, writes the
    game (you can peek at the real code as it appears), *plays it in a real
    browser*, finds and fixes its own bugs, and hands it over.
-3. Play it right away (it runs in a sandboxed iframe — keyboard + touch).
+3. Play it right away (it runs in a sandboxed iframe — keyboard + touch), or
+   **full screen** with one tap (on iPhone, where Safari won't, it fills the page).
 4. Ask for changes in plain words. Mishi makes small, exact edits, re-tests, and
    shows a friendly "here's what changed" note — or asks you a question when your
    idea could mean two things.
@@ -27,7 +28,8 @@ self-hostable.
    uploaded. Friends can play it as is, or open it in Chamuka Play ("Open a game
    someone sent you") to keep changing it.
 7. **Make it an app:** any game can be installed on its own — its own name and
-   icon on the home screen, opening straight into the game, offline. Chamuka
+   icon on the home screen, opening straight into the game (full screen where the
+   device allows), offline. Chamuka
    Play itself installs too ("Get the app").
 8. Nothing is lost if Mishi gets interrupted — you press stop, close the tab, or
    something breaks. The unfinished game is kept on your device (marked "Not

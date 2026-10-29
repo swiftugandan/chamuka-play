@@ -68,6 +68,7 @@ ${LIBRARY_LIST}
 - It runs in an <iframe sandbox="allow-scripts"> with no same-origin access. So:
   - localStorage, sessionStorage, indexedDB and document.cookie THROW. Keep high scores in memory (or wrap storage in try/catch so the game still works).
   - alert(), confirm() and prompt() are blocked — show messages in the page instead.
+  - Never add a full-screen button or call requestFullscreen: it is blocked in the frame, and the app already has its own Full screen button. Just make the game fill whatever size it is given.
   - No network beyond the catalog libraries: never use fetch, XMLHttpRequest, WebSocket, images or sounds from URLs, or links/forms that leave the page.
 - Playtest screenshots may show emoji as empty boxes if the test browser lacks an emoji font — that is the test machine, not the game.
 

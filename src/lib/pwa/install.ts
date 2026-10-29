@@ -1,5 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
+import { hasLaunchMark } from "./gameManifest";
 
 /**
  * Installing as an app, across browsers. Chromium hands the page a
@@ -78,10 +79,16 @@ if (typeof window !== "undefined") {
   });
 }
 
-function isStandalone(): boolean {
+/** Whether this page is running as an installed app right now. */
+export function isStandalone(): boolean {
   return (
     installedNow ||
     window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    // Game apps open full screen. A browser tab can be full screen too (F11, or
+    // the game's Full screen button), so only the app's own launch counts.
+    (hasLaunchMark(location.search) &&
+      window.matchMedia?.("(display-mode: fullscreen)").matches === true &&
+      !document.fullscreenElement) ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
@@ -97,11 +104,13 @@ function currentMode(): InstallMode {
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  const media = window.matchMedia?.("(display-mode: standalone)");
-  media?.addEventListener?.("change", listener);
+  const media = ["standalone", "fullscreen"].map((m) => window.matchMedia?.(`(display-mode: ${m})`));
+  media.forEach((q) => q?.addEventListener?.("change", listener));
+  document.addEventListener("fullscreenchange", listener);
   return () => {
     listeners.delete(listener);
-    media?.removeEventListener?.("change", listener);
+    media.forEach((q) => q?.removeEventListener?.("change", listener));
+    document.removeEventListener("fullscreenchange", listener);
   };
 }
 

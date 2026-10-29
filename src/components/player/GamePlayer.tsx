@@ -7,6 +7,8 @@ import { decodeGameSnapshot, gameIdFromPath, snapshotFromHash } from "@/lib/shar
 import { Mascot } from "@/components/play/Mascot";
 import { PlayerBar } from "./PlayerBar";
 import { GameFrame } from "@/components/game/GameFrame";
+import { GameStage } from "@/components/game/GameStage";
+import { useFullscreen } from "@/components/game/useFullscreen";
 import { useGameAppIdentity } from "./useGameAppIdentity";
 
 type Loaded =
@@ -23,6 +25,7 @@ type Loaded =
  */
 export function GamePlayer() {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  const fullscreen = useFullscreen();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,15 +54,19 @@ export function GamePlayer() {
   if (loaded.state === "missing") return <GameMissing />;
 
   return (
-    <main className="flex h-dvh flex-col pt-[env(safe-area-inset-top)]">
+    // An installed game app opens full screen, so keep clear of notches and
+    // cutouts on every side.
+    <main className="flex h-dvh flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
       {/* React hoists this into <head>, so Next's metadata can't reset it. */}
       <title>{loaded.game.title}</title>
-      <PlayerBar title={loaded.game.title} />
-      <GameFrame
-        title={loaded.game.title}
-        code={loaded.game.code}
-        className="min-h-0 w-full flex-1 border-0 bg-black"
-      />
+      <PlayerBar title={loaded.game.title} onFullscreen={fullscreen.enter} />
+      <GameStage fullscreen={fullscreen} className="min-h-0 w-full flex-1">
+        <GameFrame
+          title={loaded.game.title}
+          code={loaded.game.code}
+          className="min-h-0 w-full flex-1 border-0 bg-black"
+        />
+      </GameStage>
     </main>
   );
 }

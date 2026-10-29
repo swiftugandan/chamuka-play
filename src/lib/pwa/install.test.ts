@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { installMode } from "./install";
+import { describe, it, expect, afterEach } from "vitest";
+import { installMode, isStandalone } from "./install";
 
 const env = (userAgent: string, extra: Partial<Parameters<typeof installMode>[0]> = {}) =>
   installMode({ standalone: false, canPrompt: false, userAgent, maxTouchPoints: 0, ...extra });
@@ -40,5 +40,47 @@ describe("installMode", () => {
 
   it("offers nothing where web apps can't be installed", () => {
     expect(env(UA.firefoxDesktop)).toBe("unsupported");
+  });
+});
+
+describe("isStandalone", () => {
+  const realMatchMedia = window.matchMedia;
+  function displayMode(mode: "browser" | "standalone" | "fullscreen") {
+    window.matchMedia = ((query: string) =>
+      ({ matches: query === `(display-mode: ${mode})` }) as MediaQueryList) as typeof window.matchMedia;
+  }
+  function elementFullscreen(on: boolean) {
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => (on ? document.body : null),
+    });
+  }
+  afterEach(() => {
+    window.matchMedia = realMatchMedia;
+    delete (document as { fullscreenElement?: Element | null }).fullscreenElement;
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("is an app when installed as one, standalone or opened full screen", () => {
+    displayMode("standalone");
+    expect(isStandalone()).toBe(true);
+    window.history.replaceState(null, "", "/play/abc?app"); // a game app's launch
+    displayMode("fullscreen");
+    expect(isStandalone()).toBe(true);
+  });
+
+  it("isn't an app in a full-screen browser tab (F11)", () => {
+    window.history.replaceState(null, "", "/play/abc");
+    displayMode("fullscreen");
+    expect(isStandalone()).toBe(false);
+  });
+
+  it("isn't an app in a browser tab, even with the game full screen", () => {
+    displayMode("browser");
+    expect(isStandalone()).toBe(false);
+    window.history.replaceState(null, "", "/play/abc?app"); // e.g. "open in browser"
+    displayMode("fullscreen");
+    elementFullscreen(true); // the Full screen button, not an installed app
+    expect(isStandalone()).toBe(false);
   });
 });

@@ -200,6 +200,18 @@ shells (`/` and `/play`) so installed games start offline.
 parent page or storage. Treat generated `code` as untrusted; never inject it
 anywhere but this sandboxed iframe (or the playtest VM).
 
+**Full screen.** The app owns it, not the game (the frame can't — no
+`allow="fullscreen"` — and the craft rules tell Mishi not to try). `GameStage`
+wraps `GameFrame` in the studio and the player; `useFullscreen` puts that stage
+in the browser's real full screen, or covers the page where the browser refuses
+(iPhone Safari), and follows the browser back out (Escape, back gesture). The
+frame is never remounted, so the game keeps playing; while full screen the rest
+of the page is `inert`. Installed game apps ask for full screen in their manifest
+(`display_override`) and open at a marked start address (`/play/<id>?app`,
+`withLaunchMark`). A browser tab can be full screen too (F11), so `isStandalone`
+counts `display-mode: fullscreen` as installed only with that mark — and never
+while a page element is full screen. The mark never goes in the tab's address.
+
 ### Key modules
 
 | Path | Role |
@@ -220,6 +232,7 @@ anywhere but this sandboxed iframe (or the playtest VM).
 | `src/lib/games/libraries.ts` | The pinned, integrity-checked library catalog (the only allowed external files) |
 | `src/lib/games/kits.ts` | Starter kits (`phaser-arcade`, `dom-quiz`) — polished, tested games to build on |
 | `src/lib/games/bundle.ts` + `src/components/game/GameFrame.tsx` | Inline libraries before a game runs (offline, tamper-proof) |
+| `src/components/game/{GameStage.tsx,useFullscreen.ts}` | Full screen for a game (real, or covering the page on iPhone) |
 | `src/lib/games/registry.ts` | `GAME_STARTERS` (fun + learning categories), starter lookups |
 | `src/lib/safety/kidSafety.ts` | word-list prompt filter (run on client AND in API routes) |
 | `src/lib/storage/{db,repository}.ts` | Dexie schema (v3: versions + chats + drafts) + CRUD, `listGames` summaries |
